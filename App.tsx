@@ -46,11 +46,11 @@ const App: React.FC = () => {
   const [showWebcam, setShowWebcam] = useState(false);
   const [isVoiceManual, setIsVoiceManual] = useState(false);
   const [modelError, setModelError] = useState(false);
-  const [modelSrc, setModelSrc] = useState<string | undefined>(undefined);
+  const [modelSrc, setModelSrc] = useState<string>('/corazon.glb');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   // Custom Hook handles MediaPipe logic
   const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef);
@@ -169,14 +169,7 @@ const App: React.FC = () => {
   const toggleWebcam = () => setShowWebcam(!showWebcam);
   const toggleVoice = () => setIsVoiceManual(!isVoiceManual);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setModelSrc(url);
-      setModelError(false);
-    }
-  };
+
 
   // Determine if voice is active (either via Hand Gesture OR Manual Toggle)
   const isVoiceActive = gestureState.mode === 'VOICE' || isVoiceManual;
@@ -224,65 +217,24 @@ const App: React.FC = () => {
         ))}
       </model-viewer>
 
-      {/* Medical Imaging / Upload Interface */}
-      {(modelError || !modelSrc) && (
+      {/* Error Message if Model Fails */}
+      {modelError && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-950 z-50">
-          <div className="relative w-full max-w-2xl p-8 rounded-2xl border border-gray-800 bg-gray-900/50 backdrop-blur-xl shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-teal-500 to-blue-500 opacity-50"></div>
-
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-900/30 text-blue-400 mb-4 border border-blue-500/30">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-              </div>
-              <h2 className="text-3xl text-white font-bold tracking-tight mb-2">Iniciar Sesión de Anatomía</h2>
-              <p className="text-gray-400 text-sm">Visor DICOM/GLB listo. Por favor cargue el modelo del paciente.</p>
-            </div>
-
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center hover:border-teal-500/50 transition-colors group cursor-pointer relative bg-gray-800/30"
-            >
-              <div className="space-y-3">
-                <p className="text-teal-400 font-semibold group-hover:text-teal-300">
-                  Clic para Subir Modelo GLB
-                </p>
-                <p className="text-xs text-gray-500">
-                  Soporta formatos .GLB y .GLTF
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-between items-center text-xs text-gray-600">
-              <div className="flex gap-4">
-                <span>Estado: <span className="text-green-500">En línea</span></span>
-                <span>Tutor IA: <span className="text-green-500">Conectado</span></span>
-              </div>
-              <div>v1.0.8 MedStudent Edition</div>
-            </div>
+          <div className="relative w-full max-w-md p-8 rounded-2xl border border-red-800 bg-gray-900/90 backdrop-blur-xl shadow-2xl text-center">
+             <h2 className="text-2xl text-red-500 font-bold mb-2">Error de Carga</h2>
+             <p className="text-gray-300">No se pudo cargar el modelo 3D (corazon.glb).</p>
+             <p className="text-gray-500 text-sm mt-2">Asegúrate de que el archivo existe en la carpeta del proyecto.</p>
           </div>
         </div>
       )}
 
-      {/* Hidden Global File Input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept=".glb,.gltf"
-        className="hidden"
-        onChange={handleFileUpload}
-      />
+
 
       {/* UI Overlay: Top Bar */}
       <div className="absolute top-0 left-0 w-full p-4 flex justify-end items-center pointer-events-none z-30">
         <div className="pointer-events-auto flex gap-4">
           {/* Upload Button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg bg-gray-800 border-gray-600 text-gray-400 hover:text-white hover:bg-gray-700"
-            title="Subir Modelo"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-          </button>
+
 
           {/* Mode Toggle */}
           <div className="bg-gray-800 rounded-full p-1 flex shadow-lg border border-gray-700">
