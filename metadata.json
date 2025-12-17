@@ -1,0 +1,8 @@
+{
+  "name": "MedHeart AI - 3D Anatomy Tutor",
+  "description": "An interactive 3D heart anatomy viewer with gesture controls, voice interaction, and AI-powered clinical context for medical students.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
