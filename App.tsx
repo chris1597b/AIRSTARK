@@ -46,6 +46,7 @@ const App: React.FC = () => {
   const [showWebcam, setShowWebcam] = useState(false);
   const [isVoiceManual, setIsVoiceManual] = useState(false);
   const [modelError, setModelError] = useState(false);
+  const [isTransparent, setIsTransparent] = useState(false);
   const [modelSrc, setModelSrc] = useState<string>('/corazon.glb');
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -140,6 +141,10 @@ const App: React.FC = () => {
       setMode(AppMode.QUIZ);
       return;
     }
+    if (normalizedCmd.includes('navegacion') || normalizedCmd.includes('modo navegacion')) {
+      setMode(AppMode.NAVIGATION);
+      return;
+    }
 
     // 2. Check for anatomical parts
     // Improved Logic: Find the "best" match (longest keyword found)
@@ -165,6 +170,17 @@ const App: React.FC = () => {
       handleHotspotClick(bestMatch);
     }
   };
+
+  // Effect to handle model source changes based on mode and transparency
+  useEffect(() => {
+    if (mode === AppMode.NAVIGATION) {
+      setModelSrc(isTransparent ? '/corazon_transparente.glb' : '/corazon.glb');
+    } else {
+      // Reset transparency when leaving navigation mode
+      setIsTransparent(false);
+      setModelSrc('/corazon.glb');
+    }
+  }, [mode, isTransparent]);
 
   const toggleWebcam = () => setShowWebcam(!showWebcam);
   const toggleVoice = () => setIsVoiceManual(!isVoiceManual);
@@ -193,7 +209,7 @@ const App: React.FC = () => {
         style={{ width: '100%', height: '100%' }}
         onError={() => setModelError(true)}
       >
-        {modelSrc && ANATOMY_DATA.map((part) => (
+        {modelSrc && mode !== AppMode.NAVIGATION && ANATOMY_DATA.map((part) => (
           <button
             key={part.id}
             className={`
@@ -209,7 +225,7 @@ const App: React.FC = () => {
             {/* Tooltip Label - ONLY VISIBLE IN EXPLORE MODE */}
             <div className={`
                 absolute left-8 top-1/2 -translate-y-1/2 bg-white text-black px-3 py-1 rounded shadow-lg text-sm font-bold whitespace-nowrap pointer-events-none
-                ${mode === AppMode.QUIZ ? 'hidden' : 'block'}
+                ${mode === AppMode.EXPLORE ? 'block' : 'hidden'}
             `}>
               {part.label}
             </div>
@@ -221,9 +237,9 @@ const App: React.FC = () => {
       {modelError && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-950 z-50">
           <div className="relative w-full max-w-md p-8 rounded-2xl border border-red-800 bg-gray-900/90 backdrop-blur-xl shadow-2xl text-center">
-             <h2 className="text-2xl text-red-500 font-bold mb-2">Error de Carga</h2>
-             <p className="text-gray-300">No se pudo cargar el modelo 3D (corazon.glb).</p>
-             <p className="text-gray-500 text-sm mt-2">Asegúrate de que el archivo existe en la carpeta del proyecto.</p>
+            <h2 className="text-2xl text-red-500 font-bold mb-2">Error de Carga</h2>
+            <p className="text-gray-300">No se pudo cargar el modelo 3D (corazon.glb).</p>
+            <p className="text-gray-500 text-sm mt-2">Asegúrate de que el archivo existe en la carpeta del proyecto.</p>
           </div>
         </div>
       )}
@@ -245,12 +261,32 @@ const App: React.FC = () => {
               Explorar
             </button>
             <button
+              onClick={() => setMode(AppMode.NAVIGATION)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${mode === AppMode.NAVIGATION ? 'bg-blue-500 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+            >
+              Navegación
+            </button>
+            <button
               onClick={() => setMode(AppMode.QUIZ)}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${mode === AppMode.QUIZ ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
             >
               Examen
             </button>
           </div>
+
+          {/* Transparency Toggle - ONLY IN NAVIGATION MODE */}
+          {mode === AppMode.NAVIGATION && (
+            <button
+              onClick={() => setIsTransparent(!isTransparent)}
+              className={`px-4 py-2 rounded-full border border-blue-500/50 transition-all font-semibold text-sm shadow-lg backdrop-blur-md
+                ${isTransparent ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-black/40 text-blue-400 hover:bg-blue-900/30'}
+              `}
+            >
+              {isTransparent ? 'Ver Sólido' : 'Ver Transparencia'}
+            </button>
+          )}
+
+
 
           {/* Manual Voice Toggle */}
           <button
@@ -289,9 +325,9 @@ const App: React.FC = () => {
       {/* Gesture Status & Webcam Feed */}
       <div className={`absolute bottom-6 right-6 transition-all duration-500 ease-in-out z-30 ${showWebcam ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
         <div className={`relative rounded-lg overflow-hidden border-2 shadow-2xl w-64 h-48 bg-black transition-colors duration-300 ${gestureState.mode === 'ROTATING' ? 'border-teal-400' :
-            gestureState.mode === 'LOCKED' ? 'border-red-500' :
-              gestureState.mode === 'VOICE' ? 'border-pink-500' :
-                gestureState.mode === 'ZOOMING' ? 'border-blue-400' : 'border-gray-600'
+          gestureState.mode === 'LOCKED' ? 'border-red-500' :
+            gestureState.mode === 'VOICE' ? 'border-pink-500' :
+              gestureState.mode === 'ZOOMING' ? 'border-blue-400' : 'border-gray-600'
           }`}>
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover transform -scale-x-100" playsInline></video>
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full transform -scale-x-100"></canvas>
@@ -319,7 +355,7 @@ const App: React.FC = () => {
         )}
       </div>
 
-    </div>
+    </div >
   );
 };
 
