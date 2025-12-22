@@ -24,29 +24,38 @@ app.get("/health", (req, res) => {
 // Endpoint principal para chat con Gemini
 app.post("/api/chat", async (req, res) => {
     try {
-        const { prompt, systemInstruction } = req.body;
+        const { prompt, systemInstruction, forceJson = false } = req.body;
 
         if (!prompt) {
             return res.status(400).json({ error: "El prompt es requerido" });
         }
 
-        // Generar respuesta usando la API correcta de Gemini
+        // Generar respuesta usando la SDK de Gemini (v1)
+        // Nota: El usuario tenía configurado gemini-2.5-flash originalmente
         const result = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction || "Eres un asistente médico experto en anatomía cardíaca.",
-            config: { responseMimeType: "application/json" }
+            config: forceJson ? { responseMimeType: "application/json" } : undefined
         });
 
-        const text = result.text || "";
+        // La SDK v1 devuelve el texto directamente en el objeto result si es exitoso
+        let text = result.text || "";
 
-        // Intentar parsear como JSON si es posible
+        // Si no hay texto directo, intentar navegar por la respuesta
+        if (!text && result.response && result.response.candidates) {
+            text = result.response.candidates[0].content.parts[0].text;
+        }
+
+        // Intentar parsear como JSON si se solicitó o si parece ser JSON
         let parsedData;
         try {
-            parsedData = JSON.parse(text);
+            // Limpiar posibles bloques de código markdown
+            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            parsedData = JSON.parse(cleanText);
         } catch (e) {
-            // Si no es JSON válido, devolver como texto plano
-            parsedData = { text };
+            // Si no es JSON válido o falla, devolver como objeto con propiedad text
+            parsedData = { text: text };
         }
 
         res.json({ success: true, data: parsedData });

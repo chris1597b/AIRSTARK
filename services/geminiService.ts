@@ -38,6 +38,7 @@ export const getClinicalContext = async (partName: string): Promise<string> => {
       body: JSON.stringify({
         prompt,
         systemInstruction,
+        forceJson: true
       }),
     });
 
@@ -87,6 +88,7 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
       body: JSON.stringify({
         prompt,
         systemInstruction,
+        forceJson: false
       }),
     });
 
