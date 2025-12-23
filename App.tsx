@@ -3,6 +3,7 @@ import { ANATOMY_DATA, AnatomicalPart, AppMode } from './types.ts';
 import { useHandControl } from './hooks/useHandControl.ts';
 import { InfoPanel } from './components/InfoPanel.tsx';
 import { VoiceControl } from './components/VoiceControl.tsx';
+import { ScreenRecorder } from './components/ScreenRecorder.tsx';
 import { getQuizQuestion } from './services/geminiService.ts';
 
 // Extend JSX for model-viewer
@@ -244,13 +245,18 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Camera Error Info */}
+      <div className="hidden" id="camera-error-handler">
+        {/* Este div podría ser usado para inyectar errores de MediaPipe si fuera necesario */}
+      </div>
+
 
 
       {/* UI Overlay: Top Bar */}
       <div className="absolute top-0 left-0 w-full p-4 flex justify-end items-center pointer-events-none z-30">
-        <div className="pointer-events-auto flex gap-4">
-          {/* Upload Button */}
-
+        <div className="pointer-events-auto flex gap-4 items-center">
+          {/* Screen Recorder */}
+          <ScreenRecorder />
 
           {/* Mode Toggle */}
           <div className="bg-gray-800 rounded-full p-1 flex shadow-lg border border-gray-700">
