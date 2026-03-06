@@ -20,16 +20,36 @@ export interface MedicalData {
 const callGeminiDirectly = async (prompt: string, systemInstruction: string, forceJson: boolean): Promise<string> => {
   if (!FALLBACK_API_KEY) throw new Error("No hay API Key de respaldo configurada (VITE_API_KEY en Vercel).");
 
-  const ai = new GoogleGenAI({ apiKey: FALLBACK_API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      systemInstruction,
-      responseMimeType: forceJson ? "application/json" : "text/plain",
-    }
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${FALLBACK_API_KEY}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      system_instruction: {
+        parts: [{ text: systemInstruction }]
+      },
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        responseMimeType: forceJson ? "application/json" : "text/plain"
+      }
+    })
   });
-  return response.text;
+
+  if (!response.ok) {
+    throw new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  throw new Error("Respuesta de Gemini malformada o vacía.");
 };
 
 export const getClinicalContext = async (partName: string): Promise<string> => {
