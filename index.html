@@ -1,45 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AIRSTARK</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Model Viewer -->
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
- 
-    <!-- MediaPipe Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <style>
-      /* Custom scrollbar for medical notes */
-      ::-webkit-scrollbar {
-        width: 8px;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIRSTARK</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Model Viewer -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+
+  <!-- MediaPipe Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <style>
+    /* Custom scrollbar for medical notes */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #1f2937;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+    }
+
+    .hotspot {
+      display: block;
+      width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      border: none;
+      background-color: rgba(255, 255, 255, 0.4);
+      box-sizing: border-box;
+      pointer-events: auto;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .hotspot:not([data-visible]) {
+      background-color: transparent;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      width: 12px;
+      height: 12px;
+    }
+
+    .hotspot:focus {
+      border: 4px solid rgb(0, 128, 255);
+      outline: none;
+    }
+
+    .hotspot>* {
+      opacity: 1;
+      transform: translateY(-50%);
+    }
+
+    @keyframes hotspot-pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
       }
-      ::-webkit-scrollbar-track {
-        background: #1f2937; 
+
+      50% {
+        transform: scale(1.4);
+        opacity: 0.5;
       }
-      ::-webkit-scrollbar-thumb {
-        background: #4b5563; 
-        border-radius: 4px;
+
+      100% {
+        transform: scale(1.8);
+        opacity: 0;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #6b7280; 
-      }
-      model-viewer {
-        width: 100%;
-        height: 100%;
-        background-color: #000;
-      }
-      html, body, #root {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
+    }
+
+    .pulse-ring {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      border: 2px solid white;
+      pointer-events: none;
+      animation: hotspot-pulse 2s infinite;
+    }
+
+    html,
+    body,
+    #root {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -52,11 +119,13 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-gray-900 text-white overflow-hidden">
-    <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
+
+<body class="bg-gray-900 text-white overflow-hidden">
+  <div id="root"></div>
+  <script type="module" src="index.tsx"></script>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

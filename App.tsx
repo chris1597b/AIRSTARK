@@ -210,28 +210,49 @@ const App: React.FC = () => {
         style={{ width: '100%', height: '100%' }}
         onError={() => setModelError(true)}
       >
-        {modelSrc && mode !== AppMode.NAVIGATION && ANATOMY_DATA.map((part) => (
-          <button
-            key={part.id}
-            className={`
-                group relative w-6 h-6 rounded-full border-2 transition-all duration-300
-                ${mode === AppMode.EXPLORE && selectedPart?.id === part.id ? 'bg-red-500 border-white scale-125 z-50 shadow-[0_0_15px_rgba(239,68,68,0.8)]' : ''}
-                ${mode === AppMode.QUIZ ? 'bg-white/30 border-white/60 hover:bg-yellow-400 hover:scale-125' : 'bg-white/20 border-white/50 hover:bg-red-400 hover:scale-110'}
-                opacity-100
-            `}
-            slot={part.id}
-            data-surface={part.position}
-            onClick={() => handleHotspotClick(part)}
-          >
-            {/* Tooltip Label - ONLY VISIBLE IN EXPLORE MODE */}
-            <div className={`
-                absolute left-8 top-1/2 -translate-y-1/2 bg-white text-black px-3 py-1 rounded shadow-lg text-sm font-bold whitespace-nowrap pointer-events-none
-                ${mode === AppMode.EXPLORE ? 'block' : 'hidden'}
-            `}>
-              {part.label}
-            </div>
-          </button>
-        ))}
+        {modelSrc && mode !== AppMode.NAVIGATION && ANATOMY_DATA.map((part) => {
+          const isSelected = selectedPart?.id === part.id;
+          return (
+            <button
+              key={part.id}
+              className={`
+                group relative w-5 h-5 rounded-full border-2 transition-all duration-500
+                ${isSelected
+                  ? 'bg-red-500 border-white scale-150 z-50 shadow-[0_0_20px_rgba(239,68,68,0.9)] opacity-100'
+                  : 'bg-white/30 border-white/40 opacity-60 hover:opacity-100 hover:bg-teal-400 hover:scale-125 hover:border-white'
+                }
+                ${mode === AppMode.QUIZ && !isSelected ? 'bg-white/20 border-white/40 hover:bg-yellow-400' : ''}
+              `}
+              slot={part.id}
+              data-surface={part.position}
+              onClick={() => handleHotspotClick(part)}
+            >
+              {/* Pulse Ring for selected/hovered hotspots */}
+              {(isSelected || true) && (
+                <div className={`pulse-ring ${isSelected ? 'border-red-500' : 'border-white opacity-0 group-hover:opacity-100'}`}></div>
+              )}
+
+              {/* Tooltip Label - VISIBLE ON HOVER OR SELECTION */}
+              <div className={`
+                absolute left-full ml-4 top-1/2 -translate-y-1/2 
+                bg-gray-950/90 backdrop-blur-md text-white 
+                px-4 py-2 rounded-xl border border-white/20 
+                shadow-[0_10px_30px_rgba(0,0,0,0.5)] 
+                text-sm font-bold whitespace-nowrap 
+                pointer-events-none transition-all duration-300 transform
+                ${isSelected ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 -translate-x-4 scale-90 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100'}
+                z-[60]
+              `}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-red-500 animate-pulse' : 'bg-red-400'}`}></div>
+                  {part.label}
+                </div>
+                {/* Decorative Indicator */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 border-[6px] border-transparent border-r-gray-950/90"></div>
+              </div>
+            </button>
+          );
+        })}
       </model-viewer>
 
       {/* Error Message if Model Fails */}
