@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [quizStatus, setQuizStatus] = useState<'IDLE' | 'LOADING' | 'WAITING_FOR_USER' | 'CORRECT' | 'INCORRECT'>('IDLE');
 
   const [cameraOrbit, setCameraOrbit] = useState("0deg 75deg 105%");
+  const [cameraTarget, setCameraTarget] = useState("auto");
   const [showWebcam, setShowWebcam] = useState(false);
   const [isVoiceManual, setIsVoiceManual] = useState(false);
   const [modelError, setModelError] = useState(false);
@@ -123,6 +124,31 @@ const App: React.FC = () => {
         // Do not set selectedPart so the panel doesn't switch to explore mode logic
       }
     }
+
+    // --- CAMERA: Rotate to face the exact hotspot location ---
+    const viewer = document.getElementById('heart-viewer') as any;
+    if (!viewer) return;
+    const hotspotData = viewer.queryHotspot(clickedPart.id);
+    if (!hotspotData) return;
+
+    // Use real world-space position and normal returned by model-viewer
+    const pos = hotspotData.position;   // {x, y, z} world coords
+    const norm = hotspotData.normal;    // {x, y, z} surface normal in world space
+
+    const nx = norm?.x ?? 0;
+    const ny = norm?.y ?? 0;
+    const nz = norm?.z ?? 0;
+
+    // Convert surface normal to model-viewer spherical orbit angles
+    // Camera should be ALONG the normal direction from the hotspot position
+    const theta = Math.atan2(nx, nz) * (180 / Math.PI);
+    const phiRad = Math.atan2(ny, Math.sqrt(nx * nx + nz * nz));
+    const phi = 90 - phiRad * (180 / Math.PI);
+
+    // Set camera-target to exact hotspot world position (camera looks AT the hotspot)
+    setCameraTarget(`${pos.x}m ${pos.y}m ${pos.z}m`);
+    // Orbit around that point from the direction the normal points, at same distance (105%)
+    setCameraOrbit(`${theta}deg ${phi}deg 105%`);
   };
 
   const handleVoiceCommand = (command: string) => {
@@ -203,6 +229,7 @@ const App: React.FC = () => {
         camera-controls
         disable-pan
         camera-orbit={cameraOrbit}
+        camera-target={cameraTarget}
         tone-mapping="legacy"
         shadow-intensity="8"
         autoplay
