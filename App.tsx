@@ -216,7 +216,7 @@ const App: React.FC = () => {
             <button
               key={part.id}
               className={`
-                group relative w-5 h-5 rounded-full border-2 transition-all duration-500
+                hotspot group relative w-5 h-5 rounded-full border-2 transition-all duration-500
                 ${isSelected
                   ? 'bg-red-500 border-white scale-150 z-50 shadow-[0_0_20px_rgba(239,68,68,0.9)] opacity-100'
                   : 'bg-white/30 border-white/40 opacity-60 hover:opacity-100 hover:bg-teal-400 hover:scale-125 hover:border-white'
@@ -225,6 +225,7 @@ const App: React.FC = () => {
               `}
               slot={part.id}
               data-surface={part.position}
+              data-visibility-attribute="visible"
               onClick={() => handleHotspotClick(part)}
             >
               {/* Pulse Ring for selected/hovered hotspots */}

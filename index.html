@@ -53,10 +53,9 @@
     }
 
     .hotspot:not([data-visible]) {
-      background-color: transparent;
-      border: 3px solid rgba(255, 255, 255, 0.2);
-      width: 12px;
-      height: 12px;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
     }
 
     .hotspot:focus {
