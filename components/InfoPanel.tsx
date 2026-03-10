@@ -68,10 +68,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             return (
                 <button
                     onClick={() => setIsMinimized(false)}
-                    className="absolute top-20 sm:top-6 left-4 z-40 bg-gray-900/80 p-3 rounded-full border border-teal-500 text-teal-400 shadow-lg backdrop-blur-md animate-fade-in hover:bg-gray-800 transition-colors"
+                    className="absolute top-20 sm:top-6 left-4 z-40 bg-gray-900/80 p-2 rounded-full border border-teal-500 shadow-lg backdrop-blur-md animate-fade-in hover:bg-gray-800 transition-colors"
                     title="Mostrar Información"
                 >
-                    <span className="text-2xl">🫀</span>
+                    <img src="/logo_airstark.jpg" alt="AIRSTARK" className="w-8 h-8 rounded-full object-cover shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
                 </button>
             );
         }
@@ -81,7 +81,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             <div className="absolute top-20 sm:top-6 left-4 sm:left-6 right-4 sm:w-80 bg-black/80 backdrop-blur-md border-l-4 border-teal-500 rounded-r-xl p-6 text-gray-300 shadow-2xl transition-opacity animate-fade-in pointer-events-auto">
                 <div className="flex justify-between items-start mb-2">
                     <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
-                        <span className="text-2xl">🫀</span> AIRSTARK
+                        <img src="/logo_airstark.jpg" alt="Logo" className="w-8 h-8 rounded-full object-cover" /> AIRSTARK
                     </h2>
                     {/* Minimize Button */}
                     <button

@@ -50,6 +50,11 @@ const App: React.FC = () => {
   const [modelError, setModelError] = useState(false);
   const [isTransparent, setIsTransparent] = useState(false);
   const [modelSrc, setModelSrc] = useState<string>('/corazon.glb');
+  const [lockedOrbit, setLockedOrbit] = useState<{ theta: number, phi: number } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  const modelViewerRef = useRef<any>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,6 +82,30 @@ const App: React.FC = () => {
     animId = requestAnimationFrame(updateLoop);
     return () => cancelAnimationFrame(animId);
   }, [gestureState.mode]);
+
+  // Handle Model Loading Events
+  useEffect(() => {
+    const viewer = modelViewerRef.current;
+    if (!viewer) return;
+
+    const onProgress = (event: any) => {
+      const progress = event.detail.totalProgress * 100;
+      setLoadingProgress(Math.round(progress));
+    };
+
+    const onLoad = () => {
+      // Small delay for smooth transition
+      setTimeout(() => setIsLoading(false), 500);
+    };
+
+    viewer.addEventListener('progress', onProgress);
+    viewer.addEventListener('load', onLoad);
+
+    return () => {
+      viewer.removeEventListener('progress', onProgress);
+      viewer.removeEventListener('load', onLoad);
+    };
+  }, []);
 
   // --- QUIZ LOGIC ---
 
@@ -149,6 +178,7 @@ const App: React.FC = () => {
     setCameraTarget(`${pos.x}m ${pos.y}m ${pos.z}m`);
     // Orbit around that point from the direction the normal points, at same distance (105%)
     setCameraOrbit(`${theta}deg ${phi}deg 105%`);
+    setLockedOrbit({ theta, phi });
   };
 
   const handleVoiceCommand = (command: string) => {
@@ -157,7 +187,7 @@ const App: React.FC = () => {
 
     // 1. Check for commands
     if (normalizedCmd.includes('cerrar') || normalizedCmd.includes('ocultar')) {
-      setSelectedPart(null);
+      handleCloseInfo();
       return;
     }
     if (normalizedCmd.includes('explorar') || normalizedCmd.includes('modo explorar')) {
@@ -198,6 +228,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCloseInfo = () => {
+    setSelectedPart(null);
+    setCameraOrbit("0deg 75deg 105%");
+    setCameraTarget("auto");
+    setLockedOrbit(null);
+  };
+
   // Effect to handle model source changes based on mode and transparency
   useEffect(() => {
     if (mode === AppMode.NAVIGATION) {
@@ -223,6 +260,7 @@ const App: React.FC = () => {
       {/* 3D Viewer */}
       <model-viewer
         id="heart-viewer"
+        ref={modelViewerRef}
         {...(modelSrc ? { src: modelSrc } : {})}
         ar
         ar-modes="webxr scene-viewer quick-look"
@@ -234,6 +272,8 @@ const App: React.FC = () => {
         shadow-intensity="8"
         autoplay
         exposure="0.2"
+        min-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
+        max-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
         style={{ width: '100%', height: '100%' }}
         onError={() => setModelError(true)}
       >
@@ -246,9 +286,9 @@ const App: React.FC = () => {
                 hotspot group relative w-5 h-5 rounded-full border-2 transition-all duration-500
                 ${isSelected
                   ? 'bg-red-500 border-white scale-150 z-50 shadow-[0_0_20px_rgba(239,68,68,0.9)] opacity-100'
-                  : 'bg-white/30 border-white/40 opacity-60 hover:opacity-100 hover:bg-teal-400 hover:scale-125 hover:border-white'
+                  : 'bg-white/30 border-white/40 opacity-60 data-[visible]:bg-green-100 data-[visible]:opacity-100 data-[visible]:border-green-200'
                 }
-                ${mode === AppMode.QUIZ && !isSelected ? 'bg-white/20 border-white/40 hover:bg-yellow-400' : ''}
+                ${mode === AppMode.QUIZ && !isSelected ? 'bg-white/20 border-white/40' : ''}
               `}
               slot={part.id}
               data-surface={part.position}
@@ -257,7 +297,7 @@ const App: React.FC = () => {
             >
               {/* Pulse Ring for selected/hovered hotspots */}
               {(isSelected || true) && (
-                <div className={`pulse-ring ${isSelected ? 'border-red-500' : 'border-white opacity-0 group-hover:opacity-100'}`}></div>
+                <div className={`pulse-ring ${isSelected ? 'border-red-500' : 'border-white opacity-0'}`}></div>
               )}
 
               {/* Tooltip Label - VISIBLE ON HOVER OR SELECTION */}
@@ -268,7 +308,7 @@ const App: React.FC = () => {
                 shadow-[0_10px_30px_rgba(0,0,0,0.5)] 
                 text-sm font-bold whitespace-nowrap 
                 pointer-events-none transition-all duration-300 transform
-                ${isSelected ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 -translate-x-4 scale-90 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100'}
+                ${isSelected ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 -translate-x-4 scale-90'}
                 z-[60]
               `}>
                 <div className="flex items-center gap-2">
@@ -284,7 +324,7 @@ const App: React.FC = () => {
       </model-viewer>
 
       {/* Error Message if Model Fails */}
-      {modelError && (
+      {modelError && !isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-950 z-50">
           <div className="relative w-full max-w-md p-8 rounded-2xl border border-red-800 bg-gray-900/90 backdrop-blur-xl shadow-2xl text-center">
             <h2 className="text-2xl text-red-500 font-bold mb-2">Error de Carga</h2>
@@ -367,7 +407,7 @@ const App: React.FC = () => {
       <InfoPanel
         selectedPart={selectedPart}
         mode={mode}
-        onClose={() => setSelectedPart(null)}
+        onClose={handleCloseInfo}
         quizQuestion={quizQuestion}
         quizStatus={quizStatus}
         onNextQuestion={startNewQuizRound}
@@ -409,6 +449,51 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Premium Loading Screen Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-gray-900 overflow-hidden">
+          {/* Background Decorative Elements */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600 rounded-full blur-[120px] animate-pulse"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-600 rounded-full blur-[120px] animate-pulse delay-700"></div>
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center">
+            {/* Official Logo Animation - No Bounce */}
+            <div className="relative mb-12">
+              <div className="w-48 h-48 flex items-center justify-center shadow-[0_0_80px_rgba(255,255,255,0.25)] rounded-full overflow-hidden">
+                <img src="/logo_airstark.jpg" alt="AIRSTARK Logo" className="w-full h-full object-cover" />
+              </div>
+              <div className="absolute inset-0 w-48 h-48 border-4 border-white rounded-full animate-ping opacity-20"></div>
+            </div>
+
+            <p className="text-gray-400 text-sm font-medium uppercase tracking-widest mb-8">Sincronizando Sistema Anatómico</p>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden border border-white/5 shadow-inner mb-4 relative">
+              <div
+                className="h-full bg-gradient-to-r from-teal-500 via-red-500 to-blue-500 bg-[length:200%_auto] animate-[gradient_3s_linear_infinite] transition-all duration-300 ease-out shadow-[0_0_15px_rgba(20,184,166,0.5)]"
+                style={{ width: `${loadingProgress}%` }}
+              ></div>
+            </div>
+
+            <div className="flex justify-between w-full text-[10px] font-bold text-gray-500">
+              <span className="uppercase tracking-tighter">{loadingProgress < 100 ? 'Cargando Estructuras...' : 'Iniciando Interfaz...'}</span>
+              <span>{loadingProgress}%</span>
+            </div>
+          </div>
+
+          {/* Style for the animated gradient progress bar */}
+          <style>{`
+            @keyframes gradient {
+              0% { background-position: 0% 50%; }
+              50% { background-position: 100% 50%; }
+              100% { background-position: 0% 50%; }
+            }
+          `}</style>
+        </div>
+      )}
 
     </div >
   );
