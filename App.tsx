@@ -53,6 +53,7 @@ const App: React.FC = () => {
   const [lockedOrbit, setLockedOrbit] = useState<{ theta: number, phi: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isTransparencyLoading, setIsTransparencyLoading] = useState(false);
 
   const modelViewerRef = useRef<any>(null);
 
@@ -95,7 +96,10 @@ const App: React.FC = () => {
 
     const onLoad = () => {
       // Small delay for smooth transition
-      setTimeout(() => setIsLoading(false), 500);
+      setTimeout(() => {
+        setIsLoading(false);
+        setIsTransparencyLoading(false);
+      }, 500);
     };
 
     viewer.addEventListener('progress', onProgress);
@@ -269,6 +273,11 @@ const App: React.FC = () => {
     }
   }, [mode, isTransparent]);
 
+  // Function specifically to toggle transparency with loading feedback
+  const handleToggleTransparency = () => {
+    setIsTransparencyLoading(true);
+    setIsTransparent(!isTransparent);
+  };
   const toggleWebcam = () => setShowWebcam(!showWebcam);
   const toggleVoice = () => setIsVoiceManual(!isVoiceManual);
 
@@ -395,7 +404,7 @@ const App: React.FC = () => {
           {/* Transparency Toggle - ONLY IN NAVIGATION MODE */}
           {mode === AppMode.NAVIGATION && (
             <button
-              onClick={() => setIsTransparent(!isTransparent)}
+              onClick={handleToggleTransparency}
               className={`px-4 py-2 rounded-full border border-blue-500/50 transition-all font-semibold text-sm shadow-lg backdrop-blur-md
                 ${isTransparent ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-black/40 text-blue-400 hover:bg-blue-900/30'}
               `}
@@ -472,6 +481,28 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Transparency transition loader Overlay */}
+      {isTransparencyLoading && (
+        <div className="transparency-loader-overlay">
+          <div className="loading">
+            <svg width="128px" height="96px" viewBox="0 0 64 48">
+              <polyline
+                points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24"
+                id="back"
+              ></polyline>
+              <polyline
+                points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24"
+                id="front"
+              ></polyline>
+              <polyline
+                points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24"
+                id="front2"
+              ></polyline>
+            </svg>
+          </div>
+        </div>
+      )}
 
       {/* Premium Loading Screen Overlay */}
       {isLoading && (
