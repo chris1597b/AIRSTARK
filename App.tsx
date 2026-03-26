@@ -183,7 +183,11 @@ const App: React.FC = () => {
     setCameraTarget(`${pos.x}m ${pos.y}m ${pos.z}m`);
     // Orbit around that point from the direction the normal points, at same distance (105%)
     setCameraOrbit(`${theta}deg ${phi}deg 105%`);
-    setLockedOrbit({ theta, phi });
+    
+    // Lock rotation ONLY in Explore mode to allow free inspection during Quiz
+    if (mode !== AppMode.QUIZ) {
+      setLockedOrbit({ theta, phi });
+    }
   };
 
   const handleVoiceCommand = (command: string) => {
