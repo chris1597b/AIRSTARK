@@ -235,13 +235,24 @@ const App: React.FC = () => {
     setLockedOrbit(null);
   };
 
+  // Effect to reset camera and selections when switching modes
+  useEffect(() => {
+    setCameraOrbit("0deg 75deg 105%");
+    setCameraTarget("auto");
+    setLockedOrbit(null);
+    setSelectedPart(null);
+    
+    // Reset transparency when leaving navigation mode
+    if (mode !== AppMode.NAVIGATION) {
+      setIsTransparent(false);
+    }
+  }, [mode]);
+
   // Effect to handle model source changes based on mode and transparency
   useEffect(() => {
     if (mode === AppMode.NAVIGATION) {
       setModelSrc(isTransparent ? '/corazon_transparente.glb' : '/corazon.glb');
     } else {
-      // Reset transparency when leaving navigation mode
-      setIsTransparent(false);
       setModelSrc('/corazon.glb');
     }
   }, [mode, isTransparent]);
