@@ -160,6 +160,9 @@ const App: React.FC = () => {
     }
 
     // --- CAMERA: Rotate to face the exact hotspot location ---
+    // User request: No camera movement when clicking hotspots in QUIZ mode
+    if (mode === AppMode.QUIZ) return;
+    
     const viewer = document.getElementById('heart-viewer') as any;
     if (!viewer) return;
     const hotspotData = viewer.queryHotspot(clickedPart.id);
