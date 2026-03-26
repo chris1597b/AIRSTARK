@@ -114,6 +114,11 @@ const App: React.FC = () => {
     setQuizQuestion(null);
     setSelectedPart(null); // Clear any previous selection
 
+    // Reset camera for the new question
+    setCameraOrbit("0deg 75deg 105%");
+    setCameraTarget("auto");
+    setLockedOrbit(null);
+
     // Pick random part
     const randomIndex = Math.floor(Math.random() * ANATOMY_DATA.length);
     const target = ANATOMY_DATA[randomIndex];
