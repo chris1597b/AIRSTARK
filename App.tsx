@@ -415,14 +415,51 @@ const App: React.FC = () => {
 
 
 
-          {/* Manual Voice Toggle */}
-          <button
-            onClick={toggleVoice}
-            className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${isVoiceManual ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
-            title="Activar Voz"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-          </button>
+          {/* Manual Voice Toggle & Hotspot List Dropdown */}
+          <div className="relative">
+            <button
+              onClick={toggleVoice}
+              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${isVoiceActive ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
+              title="Activar Voz"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            </button>
+
+            {/* Hotspot Dropdown List */}
+            {isVoiceActive && (
+              <div className="absolute top-12 right-0 w-64 max-h-[50vh] bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[100]">
+                <div className="p-4 border-b border-white/5 bg-white/5">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                    Comandos de Voz / Lista
+                  </h3>
+                </div>
+                <div className="overflow-y-auto max-h-[calc(50vh-4rem)] p-2 custom-scrollbar">
+                  {ANATOMY_DATA.map((part) => (
+                    <button
+                      key={part.id}
+                      onClick={() => {
+                        handleHotspotClick(part);
+                        if (isVoiceManual) setIsVoiceManual(false); // Close if manual
+                      }}
+                      className={`
+                        w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group
+                        ${selectedPart?.id === part.id 
+                          ? 'bg-red-600/20 text-red-400 border border-red-500/30' 
+                          : 'text-gray-300 hover:bg-white/5 border border-transparent'}
+                      `}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${selectedPart?.id === part.id ? 'bg-red-500 scale-125' : 'bg-gray-600 group-hover:bg-red-400'}`}></div>
+                      <span className="text-sm font-medium">{part.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="p-3 bg-black/40 text-[10px] text-gray-500 text-center italic border-t border-white/5">
+                  Menciona el nombre o selecciona de la lista
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Webcam Toggle */}
           <button
