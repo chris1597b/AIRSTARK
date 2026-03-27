@@ -34,10 +34,37 @@ export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canv
       const ctx = canvas?.getContext('2d');
       if (!canvas || !ctx || !videoRef.current) return;
 
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      if (canvas.width !== videoRef.current.videoWidth || canvas.height !== videoRef.current.videoHeight) {
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+      }
+
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // --- Draw Guidelines (Full Extended Axis + Solid Center Cross) ---
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)'; // Increased opacity
+      ctx.lineWidth = 1.5; // Slightly thicker
+      ctx.setLineDash([4, 4]); // Larger dashed pattern for better visibility
+      ctx.beginPath();
+      // Full Horizontal Line
+      ctx.moveTo(0, canvas.height / 2);
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      // Full Vertical Line
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+
+      // Bold Central Crosshair
+      ctx.setLineDash([]); // Solid lines
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.9)'; // High contrast center
+      ctx.lineWidth = 2.5; // Thicker center marker
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2 - 15, canvas.height / 2);
+      ctx.lineTo(canvas.width / 2 + 15, canvas.height / 2);
+      ctx.moveTo(canvas.width / 2, canvas.height / 2 - 15);
+      ctx.lineTo(canvas.width / 2, canvas.height / 2 + 15);
+      ctx.stroke();
 
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
