@@ -45,7 +45,7 @@ const App: React.FC = () => {
 
   const [cameraOrbit, setCameraOrbit] = useState("0deg 75deg 105%");
   const [cameraTarget, setCameraTarget] = useState("auto");
-  const [showWebcam, setShowWebcam] = useState(false);
+  const [showWebcam, setShowWebcam] = useState(true);
   const [isVoiceManual, setIsVoiceManual] = useState(false);
   const [modelError, setModelError] = useState(false);
   const [isTransparent, setIsTransparent] = useState(false);
