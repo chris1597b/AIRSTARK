@@ -77,7 +77,8 @@ export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canv
         else if (indexExt && extendedCount === 1) {
             setGestureState({ mode: 'ZOOMING', active: true });
             const dPinch = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
-            const zoomTarget = 200 - (dPinch * 400);
+            // Reducido el base y aumentado el multiplicador para mayor profundidad y sensibilidad
+            const zoomTarget = 220 - (dPinch * 600); 
             velocity.current.zoom = zoomTarget;
             velocity.current.theta = 0;
             velocity.current.phi = 0;
@@ -151,7 +152,7 @@ export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canv
         if (velocity.current.zoom !== 0) {
             camState.current.radius += (velocity.current.zoom - camState.current.radius) * 0.1;
         }
-        camState.current.radius = Math.max(10, Math.min(200, camState.current.radius));
+        camState.current.radius = Math.max(2, Math.min(250, camState.current.radius));
 
         orbitOutput.current = `${camState.current.theta}rad ${camState.current.phi}rad ${camState.current.radius}%`;
     }, 1000 / 60);
