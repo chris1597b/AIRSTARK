@@ -5,6 +5,8 @@ import { InfoPanel } from './components/InfoPanel.tsx';
 import { VoiceControl } from './components/VoiceControl.tsx';
 import { ScreenRecorder } from './components/ScreenRecorder.tsx';
 import { getQuizQuestion } from './services/geminiService.ts';
+import { ExcalidrawEditor } from './components/ExcalidrawEditor.tsx';
+import "@excalidraw/excalidraw/index.css";
 
 // Extend JSX for model-viewer
 declare module 'react' {
@@ -518,6 +520,36 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Excalidraw Overlay Toggle Button (Bottom-Left) */}
+      <div className="absolute bottom-6 left-6 z-50">
+        <button
+          onClick={() => setMode(mode === AppMode.DRAW ? AppMode.EXPLORE : AppMode.DRAW)}
+          className={`px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold transition-all shadow-2xl backdrop-blur-md border ${
+            mode === AppMode.DRAW
+              ? 'bg-red-600/90 border-red-400 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]'
+              : 'bg-indigo-600/90 border-indigo-400 text-white hover:bg-indigo-500/90 hover:scale-105'
+          }`}
+          title="Modo Pizarra (Anotaciones)"
+        >
+          {mode === AppMode.DRAW ? (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              Cerrar Pizarra
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              Pizarra 3D
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Excalidraw Editor Overlay */}
+      {mode === AppMode.DRAW && (
+        <ExcalidrawEditor onClose={() => setMode(AppMode.EXPLORE)} />
+      )}
 
       {/* Transparency transition loader Overlay */}
       {isTransparencyLoading && (

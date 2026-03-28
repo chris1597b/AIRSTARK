@@ -154,7 +154,15 @@ export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canv
 
         if (videoRef.current) {
             camera = new window.Camera(videoRef.current, {
-                onFrame: async () => { await hands.send({ image: videoRef.current }); },
+                onFrame: async () => { 
+                    try {
+                        if (videoRef.current && videoRef.current.videoWidth > 0) {
+                            await hands.send({ image: videoRef.current }); 
+                        }
+                    } catch (e) {
+                        console.warn("MediaPipe WebGL send error (ignorado):", e);
+                    }
+                },
                 width: 320,
                 height: 240
             });

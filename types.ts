@@ -12,7 +12,7 @@ export enum AppMode {
   EXPLORE = 'EXPLORE',
   NAVIGATION = 'NAVIGATION',
   QUIZ = 'QUIZ',
-
+  DRAW = 'DRAW',
 }
 
 export interface ChatMessage {
