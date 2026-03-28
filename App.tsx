@@ -168,7 +168,7 @@ const App: React.FC = () => {
     // --- CAMERA: Rotate to face the exact hotspot location ---
     // User request: No camera movement when clicking hotspots in QUIZ mode
     if (mode === AppMode.QUIZ) return;
-    
+
     const viewer = document.getElementById('heart-viewer') as any;
     if (!viewer) return;
     const hotspotData = viewer.queryHotspot(clickedPart.id);
@@ -192,7 +192,7 @@ const App: React.FC = () => {
     setCameraTarget(`${pos.x}m ${pos.y}m ${pos.z}m`);
     // Orbit around that point from the direction the normal points, at same distance (105%)
     setCameraOrbit(`${theta}deg ${phi}deg 105%`);
-    
+
     // Lock rotation ONLY in Explore mode to allow free inspection during Quiz
     if (mode !== AppMode.QUIZ) {
       setLockedOrbit({ theta, phi });
@@ -259,7 +259,7 @@ const App: React.FC = () => {
     setCameraTarget("auto");
     setLockedOrbit(null);
     setSelectedPart(null);
-    
+
     // Reset transparency when leaving navigation mode
     if (mode !== AppMode.NAVIGATION) {
       setIsTransparent(false);
@@ -375,14 +375,19 @@ const App: React.FC = () => {
 
 
 
-      {/* UI Overlay: Top Bar */}
-      <div className="absolute top-0 left-0 w-full p-4 flex justify-end items-center pointer-events-none z-30">
-        <div className="pointer-events-auto flex gap-4 items-center">
+      {/* UI Overlay: Top Bar (Reubica botones grabando y cámara cuando está en DRAW) */}
+      <div
+        className={`absolute pointer-events-none z-[60] transition-all duration-500 ease-in-out flex ${mode === AppMode.DRAW
+            ? 'top-3 right-32 flex-row items-start'
+            : 'top-0 left-0 w-full p-4 justify-end items-center'
+          }`}
+      >
+        <div className={`pointer-events-auto flex items-center gap-4 ${mode === AppMode.DRAW ? 'flex-row' : ''}`}>
           {/* Screen Recorder */}
           <ScreenRecorder />
 
-          {/* Mode Toggle */}
-          <div className="bg-gray-800 rounded-full p-1 flex shadow-lg border border-gray-700">
+          {/* Mode Toggle (Hidden in DRAW mode) */}
+          <div className={`bg-gray-800 rounded-full p-1 flex shadow-lg border border-gray-700 transition-opacity ${mode === AppMode.DRAW ? 'hidden' : 'opacity-100'}`}>
             <button
               onClick={() => setMode(AppMode.EXPLORE)}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${mode === AppMode.EXPLORE ? 'bg-teal-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
@@ -403,8 +408,8 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          {/* Transparency Toggle - ONLY IN NAVIGATION MODE */}
-          {mode === AppMode.NAVIGATION && (
+          {/* Transparency Toggle - ONLY IN NAVIGATION MODE (Hidden in DRAW) */}
+          {mode === AppMode.NAVIGATION && mode !== AppMode.DRAW && (
             <button
               onClick={handleToggleTransparency}
               className={`px-4 py-2 rounded-full border border-blue-500/50 transition-all font-semibold text-sm shadow-lg backdrop-blur-md
@@ -417,8 +422,8 @@ const App: React.FC = () => {
 
 
 
-          {/* Manual Voice Toggle & Hotspot List Dropdown */}
-          <div className="relative">
+          {/* Manual Voice Toggle & Hotspot List Dropdown (Hidden in DRAW) */}
+          <div className={`relative transition-opacity ${mode === AppMode.DRAW ? 'hidden' : 'opacity-100'}`}>
             <button
               onClick={toggleVoice}
               className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${isVoiceActive ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
@@ -446,8 +451,8 @@ const App: React.FC = () => {
                       }}
                       className={`
                         w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group
-                        ${selectedPart?.id === part.id 
-                          ? 'bg-red-600/20 text-red-400 border border-red-500/30' 
+                        ${selectedPart?.id === part.id
+                          ? 'bg-red-600/20 text-red-400 border border-red-500/30'
                           : 'text-gray-300 hover:bg-white/5 border border-transparent'}
                       `}
                     >
@@ -527,11 +532,10 @@ const App: React.FC = () => {
       <div className="absolute bottom-28 left-6 z-50">
         <button
           onClick={() => setMode(mode === AppMode.DRAW ? AppMode.EXPLORE : AppMode.DRAW)}
-          className={`px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold transition-all shadow-2xl backdrop-blur-md border ${
-            mode === AppMode.DRAW
+          className={`px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold transition-all shadow-2xl backdrop-blur-md border ${mode === AppMode.DRAW
               ? 'bg-red-600/90 border-red-400 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]'
               : 'bg-indigo-600/90 border-indigo-400 text-white hover:bg-indigo-500/90 hover:scale-105'
-          }`}
+            }`}
           title="Modo Pizarra (Anotaciones)"
         >
           {mode === AppMode.DRAW ? (

@@ -30,6 +30,17 @@ export const ExcalidrawEditor: React.FC<ExcalidrawEditorProps> = ({ onClose }) =
 
   return (
     <div className="absolute inset-0 z-40 pointer-events-auto" style={{ width: "100%", height: "100%" }}>
+      <style>{`
+        /* Oculta únicamente el botón de hamburguesa y Library */
+        .excalidraw [data-testid="main-menu-trigger"],
+        .excalidraw .layer-ui__library-button,
+        .excalidraw .sidebar-trigger,
+        .excalidraw [aria-label="Library"],
+        .excalidraw [aria-label="Biblioteca"] {
+          display: none !important;
+          pointer-events: none !important;
+        }
+      `}</style>
       <Excalidraw
         onExcalidrawAPI={onExcalidrawAPI}
         onChange={onChange}
