@@ -474,16 +474,18 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Info Sidebar */}
-      <InfoPanel
-        selectedPart={selectedPart}
-        mode={mode}
-        onClose={handleCloseInfo}
-        quizQuestion={quizQuestion}
-        quizStatus={quizStatus}
-        onNextQuestion={startNewQuizRound}
-        correctAnswerName={quizTarget?.label}
-      />
+      {/* Info Sidebar (Se oculta durante la Pizarra para evitar superposición) */}
+      {mode !== AppMode.DRAW && (
+        <InfoPanel
+          selectedPart={selectedPart}
+          mode={mode}
+          onClose={handleCloseInfo}
+          quizQuestion={quizQuestion}
+          quizStatus={quizStatus}
+          onNextQuestion={startNewQuizRound}
+          correctAnswerName={quizTarget?.label}
+        />
+      )}
 
       {/* Voice Control Component (Headless but functional) */}
       <VoiceControl isActive={isVoiceActive} onCommand={handleVoiceCommand} />
@@ -521,8 +523,8 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Excalidraw Overlay Toggle Button (Bottom-Left) */}
-      <div className="absolute bottom-6 left-6 z-50">
+      {/* Excalidraw Overlay Toggle Button (Bottom-Left shifted up) */}
+      <div className="absolute bottom-28 left-6 z-50">
         <button
           onClick={() => setMode(mode === AppMode.DRAW ? AppMode.EXPLORE : AppMode.DRAW)}
           className={`px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold transition-all shadow-2xl backdrop-blur-md border ${
