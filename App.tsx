@@ -273,6 +273,16 @@ const App: React.FC = () => {
     } else {
       setModelSrc('/corazon.glb');
     }
+
+    // Imperative control of model animation (autoplay)
+    const viewer = modelViewerRef.current;
+    if (viewer) {
+      if (mode === AppMode.DRAW) {
+        viewer.pause && viewer.pause();
+      } else {
+        viewer.play && viewer.play();
+      }
+    }
   }, [mode, isTransparent]);
 
   // Function specifically to toggle transparency with loading feedback
@@ -304,7 +314,7 @@ const App: React.FC = () => {
         camera-target={cameraTarget}
         tone-mapping="legacy"
         shadow-intensity="8"
-        autoplay
+        {...(mode !== AppMode.DRAW ? { autoplay: true } : {})}
         exposure="0.2"
         min-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
         max-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
@@ -540,13 +550,13 @@ const App: React.FC = () => {
         >
           {mode === AppMode.DRAW ? (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              Cerrar Pizarra
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+             
             </>
           ) : (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-              Pizarra 3D
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              
             </>
           )}
         </button>
