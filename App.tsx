@@ -68,23 +68,26 @@ const App: React.FC = () => {
 
   // Update camera based on hand gestures if active
   useEffect(() => {
+    if (mode === AppMode.DRAW && !showWebcam) return;
     if (gestureState.mode !== 'IDLE' && gestureState.mode !== 'VOICE' && gestureState.mode !== 'LOCKED') {
       setCameraOrbit(orbitOutput.current);
     }
-  }, [gestureState, orbitOutput]);
+  }, [gestureState, orbitOutput, mode, showWebcam]);
 
   // Loop to sync ref to state for smoother animation
   useEffect(() => {
     let animId: number;
     const updateLoop = () => {
-      if (gestureState.mode !== 'IDLE' && gestureState.mode !== 'VOICE' && gestureState.mode !== 'LOCKED') {
+      if (mode === AppMode.DRAW && !showWebcam) {
+        // Do nothing, rotation disabled
+      } else if (gestureState.mode !== 'IDLE' && gestureState.mode !== 'VOICE' && gestureState.mode !== 'LOCKED') {
         setCameraOrbit(orbitOutput.current);
       }
       animId = requestAnimationFrame(updateLoop);
     };
     animId = requestAnimationFrame(updateLoop);
     return () => cancelAnimationFrame(animId);
-  }, [gestureState.mode]);
+  }, [gestureState.mode, mode, showWebcam]);
 
   // Handle Model Loading Events
   useEffect(() => {
@@ -278,9 +281,10 @@ const App: React.FC = () => {
     const viewer = modelViewerRef.current;
     if (viewer) {
       if (mode === AppMode.DRAW) {
-        viewer.pause && viewer.pause();
+        if (viewer.pause) viewer.pause();
+        viewer.currentTime = 0; // Cut off the animation completely
       } else {
-        viewer.play && viewer.play();
+        if (viewer.play) viewer.play();
       }
     }
   }, [mode, isTransparent]);
@@ -308,7 +312,7 @@ const App: React.FC = () => {
         {...(modelSrc ? { src: modelSrc } : {})}
         ar
         ar-modes="webxr scene-viewer quick-look"
-        camera-controls
+        {...(mode === AppMode.DRAW && !showWebcam ? {} : { 'camera-controls': true })}
         disable-pan
         camera-orbit={cameraOrbit}
         camera-target={cameraTarget}
