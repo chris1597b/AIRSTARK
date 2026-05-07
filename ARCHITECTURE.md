@@ -1,125 +1,108 @@
-# Documentación de Arquitectura del Sistema AIRSTARK
+# Documentación de Arquitectura del Sistema AIRSTARK (Actual)
 
 ## 1. Visión General
-**AIRSTARK** (MedHeart AI) es una aplicación web interactiva educativa diseñada para la enseñanza y exploración de la anatomía cardíaca en 3D. El sistema permite a los usuarios (estudiantes de medicina, profesionales) visualizar un modelo 3D del corazón, interactuar mediante gestos manuales y comandos de voz, y acceder a información clínica contextualizada generada por Inteligencia Artificial (Google Gemini).
+**AIRSTARK** (MedHeart AI) es una aplicación web interactiva y educativa, diseñada como un entorno inmersivo para la enseñanza y exploración de la anatomía cardíaca. El sistema proporciona un modelo 3D del corazón con el que se puede interactuar de múltiples formas (gestos, voz, interfaz gráfica). Además, incorpora herramientas avanzadas como una pizarra colaborativa, grabación de pantalla, monitoreo de signos vitales simulado (EKG) y escáneres CT, complementado con información clínica generada por Inteligencia Artificial (Google Gemini).
 
 ## 2. Pila Tecnológica (Tech Stack)
 
 ### Frontend (Cliente)
 *   **Framework**: React 19 (con TypeScript).
 *   **Build Tool**: Vite.
-*   **Estilos**: Tailwind CSS.
-*   **3D Rendering**: `<model-viewer>` (Web Component de Google para renderizado 3D/AR fácil).
-*   **Reconocimiento de Gestos**: MediaPipe (Google) para detección de manos y gestos en tiempo real.
-*   **Reconocimiento de Voz**: Web Speech API (nativa del navegador).
+*   **Estilos**: Tailwind CSS para utilidades y animaciones.
+*   **Renderizado 3D**: `<model-viewer>` (Componente de Google para interactuar con modelos `.glb`).
+*   **Reconocimiento de Gestos**: MediaPipe Hands para detección de manos en tiempo real a través de la webcam.
+*   **Reconocimiento de Voz**: Web Speech API (nativo) para comandos de voz.
+*   **Pizarra Interactiva**: `@excalidraw/excalidraw` integrado para dibujos y anotaciones sobre el espacio 3D.
+*   **Grabación de Pantalla**: MediaRecorder API para captura de video del lienzo y exportación.
 
 ### Backend (Servidor)
 *   **Runtime**: Node.js.
 *   **Framework**: Express.js.
-*   **Seguridad**: `dotenv` para gestión de variables de entorno, `cors` para manejo de orígenes cruzados.
-*   **IA/LLM**: Google Gemini API (vía SDK `@google/genai`).
+*   **IA/LLM**: Google Gemini API (SDK `@google/genai`).
+*   **Seguridad**: Uso de `dotenv` para la API key, middleware de `cors`.
 
-### Modelos y Datos
-*   **Modelos 3D**: Formato `.glb` (GL Transmission Format).
-    *   `corazon.glb`: Modelo texturizado estándar.
-    *   `corazon_transparente.glb`: Modelo para visualización interna.
-*   **Datos Anatómicos**: Estructura de datos estática (`ANATOMY_DATA` en `types.ts`) mapeando IDs del modelo 3D a metadatos médicos.
+## 3. Arquitectura del Sistema (Cliente-Servidor)
 
-## 3. Arquitectura del Sistema
-
-El sistema sigue una arquitectura **Cliente-Servidor** desacoplada.
+La aplicación sigue una arquitectura moderna centrada en el frontend, delegando en el backend la capa de seguridad y comunicación con los servicios cognitivos de Google.
 
 ```mermaid
 graph TD
     User[Usuario]
     
-    subgraph "Frontend (Browser)"
-        UI[Interfaz de Usuario React]
+    subgraph "Frontend (React / Vite)"
+        App[App.tsx - Controlador Global]
+        UI[Componentes UI]
         3D[Motor 3D model-viewer]
-        Gestures[Motor de Gestos MediaPipe]
-        Voice[Motor de Voz WebSpeech]
-        Service[Gemini Service]
+        Gestures[useHandControl / MediaPipe]
+        Voice[VoiceControl / WebSpeech]
+        Tools[Pizarra Excalidraw / ScreenRecorder]
+        Service[geminiService]
     end
     
     subgraph "Backend (Node/Express)"
-        API[Express API /api/chat]
-        Auth[Gestión de API Key]
+        API[Express API: /api/chat]
     end
     
     subgraph "Cloud Services"
         Gemini[Google Gemini API]
     end
 
-    User <-->|Visualización/Interacción| UI
+    User <-->|Mouse / Touch| UI
     User -->|Webcam| Gestures
     User -->|Micrófono| Voice
+    User <-->|Dibuja / Graba| Tools
     
-    UI -->|Renderiza| 3D
-    Gestures -->|Controla Cámara| UI
-    Voice -->|Comandos/Navegación| UI
+    UI -->|Render| 3D
+    Gestures -->|Controla Rotación| App
+    Voice -->|Activa Funciones| App
+    App --> UI
     
-    UI -->|Solicita Info| Service
+    UI -->|Solicita Contexto Médico| Service
     Service -->|HTTP POST| API
     
-    API -->|Prompt + Contexto| Gemini
+    API -->|Prompt Clínico| Gemini
     Gemini -->|Respuesta JSON| API
-    API -->|Datos Clínicos| Service
+    API -->|Datos de la Estructura| Service
 ```
 
 ## 4. Componentes Principales
 
-### 4.1. Frontend
-*   **`App.tsx`**: Controlador principal. Maneja el estado global de la aplicación (Modo, Selección, Cámara) y orquesta los subcomponentes.
-*   **`components/InfoPanel.tsx`**: Panel lateral que muestra la información médica (fisiología, patología, etc.) obtenida de la IA.
-*   **`hooks/useHandControl.ts`**: Hook personalizado que encapsula la lógica de MediaPipe. Procesa el video de la webcam, detecta marcas de la mano y traduce gestos (puño, palma abierta, etc.) en coordenadas de órbita para la cámara 3D.
-*   **`services/geminiService.ts`**: Capa de abstracción para la comunicación con el backend. Define los prompts para el contexto clínico y los quizzes.
+La interfaz se ha modularizado significativamente para soportar el creciente número de funciones médicas simuladas:
 
-### 4.2. Backend (`server/`)
-*   **`server.js`**: Punto de entrada.
-    *   Mantiene la `GEMINI_API_KEY` segura en el servidor (no expuesta al cliente).
-    *   Endpoint `/api/chat`: Recibe un prompt y una instrucción del sistema, consulta a Gemini, y devuelve una respuesta estructurada (JSON).
-    *   Manejo de errores y limpieza de respuestas de la IA.
+### 4.1. Core y Estado Global
+*   **`App.tsx`**: Componente orquestador. Gestiona el estado de los modos de interacción (Exploración, Nav, Quiz), controla si la pizarra está activa (lo cual desactiva las animaciones 3D rotativas), y maneja el estado global del modelo 3D.
+*   **`hooks/useHandControl.ts`**: Hook de React que inicializa la cámara web, corre los modelos de detección de MediaPipe y exporta coordenadas de cámara (theta/phi) basadas en la pose de la mano (Palma abierta para mover, Puño para bloquear, etc.).
 
-## 5. Flujos de Datos Clave
+### 4.2. Paneles Médicos de Información y Simulación
+*   **`InfoPanel.tsx`**: Recibe datos dinámicos de Gemini y muestra fisiología, patologías y datos clínicos de la parte del corazón seleccionada.
+*   **`EKGMonitor.tsx`**: Un componente visual basado en Canvas de HTML5 que simula un trazado de electrocardiograma (ECG/EKG) animado en tiempo real sincronizado (Sístole/Diástole).
+*   **`CTPanel.tsx`**: Panel de simulación de tomografía computarizada/RM para la visualización de cortes médicos.
 
-### A. Exploración Anatómica (IA Generativa)
-1.  El usuario hace clic en una parte del corazón (ej. "Ventrículo Izquierdo").
-2.  El Frontend llama a `getClinicalContext("Ventrículo Izquierdo")`.
-3.  El Service envía una petición POST al Backend con un prompt diseñado para obtener respuesta en JSON.
-4.  El Backend consulta a Gemini usando la API Key segura.
-5.  Gemini genera datos (Fisiología, Patología, Síntomas, etc.).
-6.  El Frontend recibe el JSON y renderiza el `InfoPanel`.
+### 4.3. Herramientas Interactivas y de Creación
+*   **`ExcalidrawEditor.tsx`**: Envuelve la librería de Excalidraw. Permite al usuario hacer anotaciones manuscritas, flechas y esquemas sobre la vista 3D. Fundamental para fines educativos.
+*   **`ScreenRecorder.tsx`**: Utiliza el DOM para capturar el flujo de video de la aplicación web y grabarlo, permitiendo a los profesores o alumnos guardar sus sesiones de exploración y las anotaciones en Excalidraw.
+*   **`VoiceControl.tsx`**: Módulo que escucha en segundo plano los comandos del usuario (por ejemplo, "seleccionar ventrículo", "mostrar información") para operar la app sin usar las manos.
 
-### B. Control por Gestos
-1.  El usuario activa la cámara.
-2.  `useHandControl` procesa frames de video ~30-60 veces por segundo.
-3.  MediaPipe detecta la posición de la mano.
-4.  **Lógica de Mapeo**:
-    *   *Mano Abierta (Move)*: Mapea la posición X/Y de la mano a los ángulos `theta` y `phi` de la cámara.
-    *   *Índice (Zoom)*: Mapea la distancia o posición Y al radio (zoom) de la cámara.
-    *   *Puño (Lock)*: Congela la rotación.
-5.  El estado `cameraOrbit` de `App.tsx` se actualiza, rotando el modelo 3D en tiempo real.
+### 4.4. Backend y Servicios
+*   **`services/geminiService.ts`**: Lógica frontend para estructurar el prompt dependiendo del contexto (Información General, Patologías, Quiz Clínico).
+*   **`server/server.js`**: Protege la API key de Gemini. Es un proxy simple que recibe el prompt del cliente, llama a la API generativa, extrae el texto (JSON parseado) y lo devuelve a la interfaz.
 
-## 6. Modos de Uso
+## 5. Flujos de Interacción Complejos
 
-1.  **Explorar**: Modo predeterminado. Permite seleccionar partes y ver información detallada generada por IA.
-2.  **Navegación**: Permite alternar transparencia para ver estructuras internas. Enfocado en la visualización espacial.
-3.  **Examen (Quiz)**:
-    *   La IA genera una "viñeta clínica" (caso paciente) sin nombrar la estructura.
-    *   El usuario debe deducir la estructura y seleccionarla en el modelo 3D.
-    *   El sistema valida si la selección es correcta.
+### Modo Pizarra (Whiteboard) + Gestos
+Cuando el usuario activa el modo de anotación (Pizarra/Excalidraw):
+1. El estado `isWhiteboardOpen` se vuelve `true` en `App.tsx`.
+2. Esto provoca que el `<model-viewer>` detenga su rotación automática (disable auto-rotate).
+3. Permite al usuario dibujar con precisión sobre el modelo 3D estacionario.
+4. Si `useHandControl` está activo, el usuario puede seguir usando gestos para rotar el modelo de fondo mientras dibuja encima, creando una experiencia mixta de realidad aumentada en pantalla.
 
-## 7. Consideraciones de Seguridad
-*   **API Keys**: La clave de Gemini nunca se expone en el código cliente. Reside en el archivo `.env` del servidor.
-*   **CORS**: El servidor está configurado para permitir peticiones desde el origen del frontend (actualmente abierto para desarrollo, debe restringirse en producción).
+### Grabación de Sesión Educativa
+1. El usuario activa el `ScreenRecorder`.
+2. El componente solicita permiso para capturar el flujo de la pestaña (o ventana).
+3. Todo lo que sucede en pantalla (modelo 3D moviéndose por gestos, trazos en la pizarra, voz, y el trazado de EKG simulado) se captura en un MediaStream.
+4. Al detener la grabación, se genera un archivo de video (WebM/MP4) listo para descarga.
 
-## 8. Estructura de Directorios (Resumen)
-root/
-├── components/      # Componentes UI (Paneles, Grabadora, etc.)
-├── hooks/           # Lógica reutilizable (Gestos)
-├── server/          # Backend Express
-│   └── server.js    # Lógica del servidor
-├── services/        # Conexión con APIs
-├── public/          # Assets estáticos (Modelos 3D .glb)
-├── App.tsx          # Lógica principal
-└── types.ts         # Definiciones de tipos TypeScript
+## 6. Siguientes Pasos (Consideraciones Técnicas)
+*   **Sincronización EKG-3D**: En el futuro, la velocidad del modelo 3D (latidos) y la animación en Canvas del `EKGMonitor` podrían estar enlazadas por un único contexto de estado.
+*   **Seguridad CORS**: El backend actualmente permite todas las conexiones. En producción, requerirá configuración estricta de orígenes permitidos.
+*   **Optimización 3D**: Evaluar la compresión de los archivos `.glb` con técnicas como Draco para reducir los tiempos de carga en navegadores web.

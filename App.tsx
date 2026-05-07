@@ -51,7 +51,7 @@ const App: React.FC = () => {
   const [isVoiceManual, setIsVoiceManual] = useState(false);
   const [modelError, setModelError] = useState(false);
   const [isTransparent, setIsTransparent] = useState(false);
-  const [modelSrc, setModelSrc] = useState<string>('/corazon.glb');
+  const [modelSrc, setModelSrc] = useState<string>('/corazonfilial.glb');
   const [lockedOrbit, setLockedOrbit] = useState<{ theta: number, phi: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -272,9 +272,9 @@ const App: React.FC = () => {
   // Effect to handle model source changes based on mode and transparency
   useEffect(() => {
     if (mode === AppMode.NAVIGATION) {
-      setModelSrc(isTransparent ? '/corazon_transparente.glb' : '/corazon.glb');
+      setModelSrc(isTransparent ? '/corazon_transparente.glb' : '/corazonfilial.glb');
     } else {
-      setModelSrc('/corazon.glb');
+      setModelSrc('/corazonfilial.glb');
     }
 
     // Imperative control of model animation (autoplay)
@@ -339,7 +339,8 @@ const App: React.FC = () => {
                 ${mode === AppMode.QUIZ && !isSelected ? 'bg-white/20 border-white/40' : ''}
               `}
               slot={part.id}
-              data-surface={part.position}
+              data-position={part.position}
+              data-normal={part.normal}
               data-visibility-attribute="visible"
               onClick={() => handleHotspotClick(part)}
             >
@@ -376,7 +377,7 @@ const App: React.FC = () => {
         <div className="absolute inset-0 flex items-center justify-center bg-gray-950 z-50">
           <div className="relative w-full max-w-md p-8 rounded-2xl border border-red-800 bg-gray-900/90 backdrop-blur-xl shadow-2xl text-center">
             <h2 className="text-2xl text-red-500 font-bold mb-2">Error de Carga</h2>
-            <p className="text-gray-300">No se pudo cargar el modelo 3D (corazon.glb).</p>
+            <p className="text-gray-300">No se pudo cargar el modelo 3D (corazonfilial.glb).</p>
             <p className="text-gray-500 text-sm mt-2">Asegúrate de que el archivo existe en la carpeta del proyecto.</p>
           </div>
         </div>
