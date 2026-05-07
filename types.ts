@@ -6,6 +6,7 @@ export interface AnatomicalPart {
   position: string; // "x y z" or data-surface string
   normal: string;   // Not strictly used with data-surface but kept for interface compatibility
   keywords: string[];
+  isInternal?: boolean;
 }
 
 export enum AppMode {
@@ -58,7 +59,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Válvula que regula el flujo sanguíneo entre la aurícula izquierda y el ventrículo izquierdo.",
     position: "0.00409069354794378m 1.1019200812076964m 0.07169809936638157m",
     normal: "0.5988054671827376m -0.5650090186680035m 0.567623837850282m",
-    keywords: ["mitral", "válvula mitral", "bicúspide"]
+    keywords: ["mitral", "válvula mitral", "bicúspide"],
+    isInternal: true
   },
   {
     id: "hotspot-8",
@@ -66,7 +68,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Válvula semilunar que permite el paso de sangre del ventrículo izquierdo a la aorta, impidiendo el reflujo.",
     position: "0.016290469733741708m 1.153768719746921m 0.15194698718338565m",
     normal: "0.4833247712561434m -0.764322163158838m 0.42685922315722696m",
-    keywords: ["aórtica", "válvula aórtica"]
+    keywords: ["aórtica", "válvula aórtica"],
+    isInternal: true
   },
   {
     id: "hotspot-10",
@@ -74,7 +77,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Válvula semilunar que regula el flujo desde el ventrículo derecho hacia la arteria pulmonar.",
     position: "0.046234692799701965m 1.1796909785470842m 0.32471727629734615m",
     normal: "-0.04451312718254133m -0.841107437526709m 0.5390332643220492m",
-    keywords: ["válvula pulmonar"]
+    keywords: ["válvula pulmonar"],
+    isInternal: true
   },
   {
     id: "hotspot-11",
@@ -82,7 +86,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Cámara muscular de pared gruesa que bombea sangre oxigenada a alta presión hacia la circulación sistémica.",
     position: "0.08394413072370488m 0.9340456478507595m 0.13643895451892685m",
     normal: "-0.38472601707618564m 0.5861711225383753m 0.7130142403113668m",
-    keywords: ["ventrículo izquierdo", "ventriculo izq"]
+    keywords: ["ventrículo izquierdo", "ventriculo izq"],
+    isInternal: true
   },
   {
     id: "hotspot-12",
@@ -90,7 +95,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Músculos situados en los ventrículos cardíacos a los que se unen las cuerdas tendinosas.",
     position: "0.10909245019501435m 0.9913315762369221m 0.2525005271837031m",
     normal: "0.847236429287647m 0.1416848290924165m -0.5119725013054616m",
-    keywords: ["músculo papilar", "papilar"]
+    keywords: ["músculo papilar", "papilar"],
+    isInternal: true
   },
   {
     id: "hotspot-14",
@@ -114,7 +120,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Banda muscular que se extiende desde el tabique interventricular hasta la pared anterior del ventrículo derecho.",
     position: "0.0771558616618272m 0.9976929826199129m 0.33968621331308513m",
     normal: "0.707145148523129m -0.00002277547550447527m 0.7070684114012445m",
-    keywords: ["banda moderadora"]
+    keywords: ["banda moderadora"],
+    isInternal: true
   },
   {
     id: "hotspot-18",
@@ -122,7 +129,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Estructuras fibrosas que conectan los músculos papilares a las válvulas atrioventriculares.",
     position: "-0.06355864081328183m 1.000361115657767m 0.2708459822892789m",
     normal: "-0.35811550366213557m 0.503145482532294m 0.7865099550826805m",
-    keywords: ["cuerdas tendinosas"]
+    keywords: ["cuerdas tendinosas"],
+    isInternal: true
   },
   {
     id: "hotspot-19",
@@ -130,7 +138,8 @@ export const ANATOMY_DATA: AnatomicalPart[] = [
     description: "Cámara que recibe sangre de la aurícula derecha y la bombea a baja presión hacia los pulmones.",
     position: "-0.018630802475897656m 0.9548223863153603m 0.18183759440759142m",
     normal: "-0.4959093704113171m 0.17710885890727415m 0.8501213727667447m",
-    keywords: ["ventrículo derecho", "ventriculo der"]
+    keywords: ["ventrículo derecho", "ventriculo der"],
+    isInternal: true
   },
   {
     id: "hotspot-20",

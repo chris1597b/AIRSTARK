@@ -193,8 +193,9 @@ const App: React.FC = () => {
 
     // Set camera-target to exact hotspot world position (camera looks AT the hotspot)
     setCameraTarget(`${pos.x}m ${pos.y}m ${pos.z}m`);
-    // Orbit around that point from the direction the normal points, at same distance (105%)
-    setCameraOrbit(`${theta}deg ${phi}deg 105%`);
+    // Orbit around that point from the direction the normal points, at a very close distance 
+    const distance = clickedPart.isInternal ? "0.15m" : "105%";
+    setCameraOrbit(`${theta}deg ${phi}deg ${distance}`);
 
     // Lock rotation ONLY in Explore mode to allow free inspection during Quiz
     if (mode !== AppMode.QUIZ) {
@@ -320,7 +321,7 @@ const App: React.FC = () => {
         shadow-intensity="8"
         {...(mode !== AppMode.DRAW ? { autoplay: true } : {})}
         exposure="0.2"
-        min-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
+        min-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg 0m` : "auto auto 0m"}
         max-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
         style={{ width: '100%', height: '100%' }}
         onError={() => setModelError(true)}
