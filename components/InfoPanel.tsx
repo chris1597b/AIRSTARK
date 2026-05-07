@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { AnatomicalPart, AppMode } from '../types.ts';
-import { getClinicalContext, MedicalData } from '../services/geminiService.ts';
+import { getClinicalContext, MedicalData, sendChatMessage } from '../services/geminiService.ts';
 import EKGMonitor from './EKGMonitor.tsx';
+
+interface ChatMessage {
+    id: string;
+    role: 'user' | 'ai';
+    text: string;
+}
 
 interface InfoPanelProps {
     selectedPart: AnatomicalPart | null;
@@ -23,8 +29,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     onNextQuestion,
     correctAnswerName
 }) => {
-    const [medicalData, setMedicalData] = useState<MedicalData | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatInput, setChatInput] = useState('');
+    const [isChatLoading, setIsChatLoading] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
 
     // Auto-expand panel when relevant content changes (new selection, new quiz question, or mode switch)
@@ -32,34 +39,40 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
         setIsMinimized(false);
     }, [selectedPart, quizQuestion, mode]);
 
-    // EXPLORE MODE DATA FETCHING
+    // CHAT INITIALIZATION
     useEffect(() => {
         if (selectedPart && mode === AppMode.EXPLORE) {
-            setLoading(true);
-            setMedicalData(null);
-
-            const fetchData = async () => {
-                const jsonString = await getClinicalContext(selectedPart.label);
-                try {
-                    const cleanJson = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
-                    const data = JSON.parse(cleanJson);
-                    setMedicalData(data);
-                } catch (e) {
-                    setMedicalData({
-                        physiology: "Error de formato",
-                        pathology: "Intente nuevamente",
-                        symptoms: "-",
-                        diagnosis: "-",
-                        treatment: "-",
-                        pearl: jsonString
-                    });
+            setChatMessages([
+                {
+                    id: Date.now().toString(),
+                    role: 'ai',
+                    text: `Hola. Soy tu Asistente Médico de IA. Estoy listo para responder cualquier pregunta clínica, anatómica o fisiopatológica sobre: **${selectedPart.label}**.\n\n¿En qué te puedo ayudar?`
                 }
-                setLoading(false);
-            };
-
-            fetchData();
+            ]);
+            setChatInput('');
         }
     }, [selectedPart, mode]);
+
+    const handleSendMessage = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!chatInput.trim() || isChatLoading || !selectedPart) return;
+
+        const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: chatInput.trim() };
+        setChatMessages(prev => [...prev, userMsg]);
+        setChatInput('');
+        setIsChatLoading(true);
+
+        try {
+            const responseText = await sendChatMessage(selectedPart.label, userMsg.text, chatMessages.slice(-5));
+            const aiMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'ai', text: responseText };
+            setChatMessages(prev => [...prev, aiMsg]);
+        } catch (error) {
+            const errorMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'ai', text: "Error de conexión. Por favor, intenta nuevamente." };
+            setChatMessages(prev => [...prev, errorMsg]);
+        } finally {
+            setIsChatLoading(false);
+        }
+    };
 
     // === RENDER: LANDING CARD (No selection) ===
     if (mode === AppMode.EXPLORE && !selectedPart) {
@@ -183,53 +196,53 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                                 {selectedPart.description}
                             </div>
 
-                            {loading ? (
-                                <div className="space-y-3 animate-pulse mt-4">
-                                    <div className="h-4 bg-gray-800 rounded w-3/4"></div>
-                                    <div className="h-20 bg-gray-800 rounded-lg"></div>
-                                    <div className="h-20 bg-gray-800 rounded-lg"></div>
+                            <div className="flex flex-col h-[350px] bg-gray-900/50 rounded-lg border border-gray-700/50 mt-2 overflow-hidden shadow-inner">
+                                {/* Chat Messages */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                                    {chatMessages.map(msg => (
+                                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[85%] rounded-xl p-3 text-sm ${
+                                                msg.role === 'user' 
+                                                ? 'bg-teal-600/80 text-white rounded-tr-sm' 
+                                                : 'bg-gray-800 text-gray-200 border border-gray-700 rounded-tl-sm'
+                                            }`}>
+                                                {msg.role === 'ai' && <div className="flex items-center gap-2 mb-1 opacity-70"><span className="text-[10px] font-bold text-teal-400 uppercase">AIRSTARK IA</span></div>}
+                                                <div className="whitespace-pre-wrap leading-relaxed">{msg.text.replace(/\*\*(.*?)\*\*/g, '$1')}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {isChatLoading && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-gray-800 text-gray-400 border border-gray-700 rounded-xl rounded-tl-sm p-3 text-sm flex items-center gap-2">
+                                                <span className="text-xs italic">Analizando información médica</span>
+                                                <span className="flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse"></span>
+                                                    <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-100"></span>
+                                                    <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-200"></span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            ) : medicalData ? (
-                                <div className="space-y-4 animate-fade-in-up">
-                                    <div className="relative pl-4 border-l-2 border-blue-500">
-                                        <h3 className="text-xs font-bold text-blue-400 uppercase mb-1">Fisiología</h3>
-                                        <p className="text-sm text-gray-300">{medicalData.physiology}</p>
-                                    </div>
-                                    <div className="relative pl-4 border-l-2 border-orange-500">
-                                        <h3 className="text-xs font-bold text-orange-400 uppercase mb-1">Patología Frecuente</h3>
-                                        <p className="text-sm text-gray-300">{medicalData.pathology}</p>
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <div className="bg-gray-800/40 p-3 rounded-lg border border-gray-700/50">
-                                            <h3 className="text-xs font-bold text-purple-400 uppercase mb-1 flex items-center gap-1">
-                                                <span>🩺</span> Clínica / Síntomas
-                                            </h3>
-                                            <p className="text-xs text-gray-300">{medicalData.symptoms}</p>
-                                        </div>
-                                        <div className="bg-gray-800/40 p-3 rounded-lg border border-gray-700/50">
-                                            <h3 className="text-xs font-bold text-yellow-400 uppercase mb-1 flex items-center gap-1">
-                                                <span>🔬</span> Diagnóstico & DxDiff
-                                            </h3>
-                                            <p className="text-xs text-gray-300">{medicalData.diagnosis}</p>
-                                        </div>
-                                        <div className="bg-gray-800/40 p-3 rounded-lg border border-gray-700/50">
-                                            <h3 className="text-xs font-bold text-green-400 uppercase mb-1 flex items-center gap-1">
-                                                <span>💊</span> Tratamiento
-                                            </h3>
-                                            <p className="text-xs text-gray-300">{medicalData.treatment}</p>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 bg-gradient-to-r from-teal-900/30 to-blue-900/30 rounded-lg p-4 border border-teal-500/30 shadow-lg">
-                                        <div className="flex items-center gap-2 mb-2 text-teal-300">
-                                            <span className="text-lg">💎</span>
-                                            <h3 className="font-bold text-xs uppercase tracking-wide">High Yield Pearl</h3>
-                                        </div>
-                                        <p className="text-sm text-teal-100 italic font-medium">
-                                            "{medicalData.pearl}"
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : null}
+                                {/* Chat Input */}
+                                <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-700/50 bg-gray-800/50 flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        placeholder="Pregunta sobre anatomía o fisiología..." 
+                                        className="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-teal-500 transition-colors"
+                                    />
+                                    <button 
+                                        type="submit" 
+                                        disabled={!chatInput.trim() || isChatLoading}
+                                        className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2 px-3 rounded-lg transition-colors flex items-center justify-center"
+                                        title="Enviar"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                                    </button>
+                                </form>
+                            </div>
                         </>
 
                     )}

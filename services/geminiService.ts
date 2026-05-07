@@ -134,4 +134,32 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
       return "Hubo un error al generar la pregunta. Verifica la configuración de Vercel y tu API Key.";
     }
   }
-}
+};
+
+export const sendChatMessage = async (partName: string, message: string, history: {role: string, text: string}[]): Promise<string> => {
+  const historyText = history.map(m => `${m.role === 'user' ? 'Usuario' : 'IA'}: ${m.text}`).join('\n');
+  const prompt = `Historial de conversación:\n${historyText}\n\nUsuario: ${message}`;
+  
+  const systemInstruction = `Eres un asistente médico experto de IA, especializado en cardiología. Tu objetivo es proporcionar información científica validada, precisa y educativa sobre la estructura anatómica seleccionada: "${partName}". Responde de forma profesional, como si fueras un tutor clínico. Si el usuario hace preguntas fuera del ámbito médico, declina responder cortésmente recordando tu rol.`;
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
+    });
+
+    if (!response.ok) throw new Error(`Backend error: ${response.statusText}`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || "Error desconocido");
+    return result.data.text || "Sin respuesta";
+  } catch (error) {
+    console.warn("Backend no disponible. Fallback directo a Gemini para Chat...", error);
+    try {
+      return await callGeminiDirectly(prompt, systemInstruction, false);
+    } catch (directError) {
+      console.error("Chat Error:", directError);
+      return "Hubo un error de conexión con el Asistente IA. Verifica tu configuración.";
+    }
+  }
+};
