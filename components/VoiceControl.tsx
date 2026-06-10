@@ -8,6 +8,10 @@ interface VoiceControlProps {
 export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand }) => {
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const onCommandRef = useRef(onCommand);
+
+  // Keep ref updated to avoid stale closures
+  onCommandRef.current = onCommand;
 
   useEffect(() => {
     // Browser compatibility check
@@ -30,7 +34,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand 
       const text = event.results[last][0].transcript.toLowerCase().trim();
       if (text) {
           console.log("Speech recognized:", text);
-          onCommand(text);
+          onCommandRef.current(text);
       }
     };
 
@@ -45,7 +49,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand 
     rec.onend = () => {
        // We handle restart logic in the effect dependency on isActive
        console.log("Speech Recognition Ended");
-    };
+     };
 
     recognitionRef.current = rec;
 
@@ -78,7 +82,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand 
               // Ignore
           }
       }
-  }, [isActive, onCommand]);
+  }, [isActive]);
 
   if (!isActive) return null;
 
