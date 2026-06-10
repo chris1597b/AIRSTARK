@@ -273,7 +273,7 @@ const App: React.FC = () => {
   // Effect to handle model source changes based on mode and transparency
   useEffect(() => {
     if (mode === AppMode.NAVIGATION) {
-      setModelSrc(isTransparent ? '/corazon_transparente.glb' : '/corazonfilial.glb');
+      setModelSrc(isTransparent ? '/Corazon completo.glb' : '/corazonfilial.glb');
     } else {
       setModelSrc('/corazonfilial.glb');
     }
@@ -432,7 +432,7 @@ const App: React.FC = () => {
                 ${isTransparent ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-black/40 text-blue-400 hover:bg-blue-900/30'}
               `}
             >
-              {isTransparent ? 'Ver Sólido' : 'Ver Transparencia'}
+              {isTransparent ? 'Cara Interna' : 'Cara Externa'}
             </button>
           )}
 
