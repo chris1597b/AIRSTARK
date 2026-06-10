@@ -273,7 +273,7 @@ const App: React.FC = () => {
   // Effect to handle model source changes based on mode and transparency
   useEffect(() => {
     if (mode === AppMode.NAVIGATION) {
-      setModelSrc(isTransparent ? '/Corazon completo.glb' : '/corazonfilial.glb');
+      setModelSrc(isTransparent ? '/corazoncompleto.glb' : '/corazonfilial.glb');
     } else {
       setModelSrc('/corazonfilial.glb');
     }
