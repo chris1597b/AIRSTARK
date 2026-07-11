@@ -9,10 +9,13 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
     <div className="fixed inset-0 z-[100] bg-gray-900 flex">
       {/* SideNavBar (Desktop Only) */}
       <nav className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-slate-900 border-r border-white/10 z-40">
-        <div className="p-6 border-b border-white/10 h-16 flex items-center">
+        <div className="p-6 border-b border-white/10 h-16 flex items-center justify-between">
           <div className="text-2xl font-bold text-cyan-400">
             AIRSTARK
           </div>
+          <button onClick={onExit} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white" title="Volver">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
         </div>
         <div className="p-6 flex items-center gap-4 border-b border-white/10">
           <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden border border-white/10">
@@ -24,30 +27,26 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">Dr. Miller</h3>
-            <p className="text-xs text-gray-400">Senior Instructor</p>
+            <p className="text-xs text-gray-400">Instructor Principal</p>
           </div>
         </div>
         <div className="flex flex-col py-4">
           <a className="flex items-center gap-4 px-6 py-3 text-cyan-400 font-bold bg-white/5 border-r-2 border-cyan-400 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
-            <span className="text-sm font-semibold">Dashboard</span>
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>space_dashboard</span>
+            <span className="text-sm font-semibold">Panel</span>
           </a>
           <a className="flex items-center gap-4 px-6 py-3 text-gray-400 hover:bg-white/5 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined">medical_services</span>
-            <span className="text-sm font-semibold">Procedures</span>
+            <span className="material-symbols-outlined">monitor_heart</span>
+            <span className="text-sm font-semibold">Procedimientos</span>
           </a>
           <a className="flex items-center gap-4 px-6 py-3 text-gray-400 hover:bg-white/5 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined">view_in_ar</span>
-            <span className="text-sm font-semibold">Anatomy</span>
+            <span className="material-symbols-outlined">3d_rotation</span>
+            <span className="text-sm font-semibold">Anatomía</span>
           </a>
           <a className="flex items-center gap-4 px-6 py-3 text-gray-400 hover:bg-white/5 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined">insights</span>
-            <span className="text-sm font-semibold">Analytics</span>
+            <span className="material-symbols-outlined">query_stats</span>
+            <span className="text-sm font-semibold">Estadísticas</span>
           </a>
-          <button onClick={onExit} className="mt-8 flex items-center gap-4 px-6 py-3 text-red-400 hover:bg-red-500/10 transition-transform duration-150 ease-in-out text-left">
-            <span className="material-symbols-outlined">logout</span>
-            <span className="text-sm font-semibold">Salir de Evaluación</span>
-          </button>
         </div>
       </nav>
 
@@ -57,8 +56,8 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
           {/* Header Section */}
           <div className="flex justify-between items-end mb-12">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Teacher Dashboard</h1>
-              <p className="text-lg text-gray-400">Manage your augmented reality medical simulations.</p>
+              <h1 className="text-4xl font-bold text-white mb-2">Panel de Profesor</h1>
+              <p className="text-lg text-gray-400">Gestiona tus simulaciones médicas en realidad aumentada.</p>
             </div>
           </div>
 
