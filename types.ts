@@ -14,6 +14,7 @@ export enum AppMode {
   NAVIGATION = 'NAVIGATION',
   QUIZ = 'QUIZ',
   DRAW = 'DRAW',
+  EVALUATION = 'EVALUATION',
 }
 
 export interface ChatMessage {

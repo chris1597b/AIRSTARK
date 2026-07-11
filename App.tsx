@@ -6,6 +6,7 @@ import { VoiceControl } from './components/VoiceControl.tsx';
 import { ScreenRecorder } from './components/ScreenRecorder.tsx';
 import { getQuizQuestion } from './services/geminiService.ts';
 import { ExcalidrawEditor } from './components/ExcalidrawEditor.tsx';
+import { Evaluation } from './components/Evaluation.tsx';
 import "@excalidraw/excalidraw/index.css";
 
 // Extend JSX for model-viewer
@@ -422,6 +423,12 @@ const App: React.FC = () => {
             >
               Casos
             </button>
+            <button
+              onClick={() => setMode(AppMode.EVALUATION)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${mode === AppMode.EVALUATION ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+            >
+              Evaluación
+            </button>
           </div>
 
           {/* Transparency Toggle - ONLY IN NAVIGATION MODE (Hidden in DRAW) */}
@@ -639,6 +646,8 @@ const App: React.FC = () => {
           `}</style>
         </div>
       )}
+
+      {mode === AppMode.EVALUATION && <Evaluation onExit={() => setMode(AppMode.EXPLORE)} />}
 
     </div >
   );

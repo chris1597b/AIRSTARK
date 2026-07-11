@@ -1,0 +1,340 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AIRSTARK - Teacher Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-lowest": "#070e1d",
+                      "background": "#111827",
+                      "error-container": "#93000a",
+                      "secondary-fixed-dim": "#00d9ff",
+                      "surface-bright": "#323949",
+                      "on-secondary-fixed-variant": "#004e5d",
+                      "primary-fixed": "#ccffff",
+                      "glass-border": "rgba(255, 255, 255, 0.1)",
+                      "primary-fixed-dim": "#00ffff",
+                      "text-secondary": "#A0AEC0",
+                      "inverse-on-surface": "#313030",
+                      "tertiary-fixed-dim": "#bec7db",
+                      "surface-container-low": "#141b2b",
+                      "on-secondary-container": "#005b6c",
+                      "primary-container": "#00ffff",
+                      "on-error-container": "#ffdad6",
+                      "inverse-primary": "#008080",
+                      "on-tertiary": "#283140",
+                      "on-tertiary-fixed": "#131c2a",
+                      "tertiary": "#bec7db",
+                      "on-secondary": "#003641",
+                      "on-surface-variant": "#cbd5e1",
+                      "surface-container": "#1e293b",
+                      "on-primary-fixed": "#003333",
+                      "secondary-fixed": "#aeecff",
+                      "primary": "#00ffff",
+                      "medical-red": "#E74C3C",
+                      "on-background": "#e5e2e1",
+                      "on-surface": "#e5e2e1",
+                      "surface": "#0c1322",
+                      "on-primary-container": "#003333",
+                      "tertiary-container": "#8891a4",
+                      "outline-variant": "#475569",
+                      "on-tertiary-container": "#212a39",
+                      "secondary-container": "#4f46e5",
+                      "on-tertiary-fixed-variant": "#3e4758",
+                      "surface-container-high": "#334155",
+                      "text-primary": "#FFFFFF",
+                      "outline": "#64748b",
+                      "tertiary-fixed": "#dae3f7",
+                      "surface-dim": "#0c1322",
+                      "on-secondary-fixed": "#001f26",
+                      "secondary": "#aeecff",
+                      "surface-container-highest": "#475569",
+                      "surface-tint": "#00ffff",
+                      "on-primary-fixed-variant": "#004d4d",
+                      "surface-variant": "#1e293b",
+                      "medical-green": "#2ECC71",
+                      "error": "#ffb4ab",
+                      "inverse-surface": "#e5e2e1",
+                      "on-error": "#690005",
+                      "on-primary": "#003333"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "unit": "4px",
+                      "gutter": "24px",
+                      "margin-desktop": "48px",
+                      "container-max": "1440px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Inter"],
+                      "data-mono": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "label-md": ["Inter"],
+                      "headline-lg-mobile": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-xl": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "data-mono": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body {
+            background-color: #111827;
+            color: #FFFFFF;
+        }
+        
+        /* Subtle background grid pattern for high-tech feel */
+        .bg-grid {
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glow-active {
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen bg-grid flex flex-col md:flex-row">
+<!-- TopNavBar (Mobile Only) / Header Context (Web) -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 bg-surface-container/80 dark:bg-surface-container/80 backdrop-blur-xl border-b border-glass-border md:hidden">
+<div class="text-headline-md font-headline-md font-bold text-primary-container dark:text-primary">
+            AIRSTARK
+        </div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-text-secondary dark:text-on-surface-variant text-2xl hover:text-primary-fixed-dim transition-colors duration-200">sensors</span>
+<span class="material-symbols-outlined text-text-secondary dark:text-on-surface-variant text-2xl hover:text-primary-fixed-dim transition-colors duration-200">account_circle</span>
+</div>
+</header>
+<!-- SideNavBar (Desktop Only) -->
+<nav class="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-surface-container-low dark:bg-surface-container-low border-r border-glass-border z-40">
+<div class="p-6 border-b border-glass-border h-16 flex items-center">
+<div class="text-headline-md font-headline-md font-bold text-primary">
+                AIRSTARK
+            </div>
+</div>
+<div class="p-6 flex items-center gap-4 border-b border-glass-border">
+<div class="w-12 h-12 rounded-full bg-surface-container-high overflow-hidden border border-glass-border">
+<img alt="Teacher Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged male doctor wearing a clean white lab coat and a subtle dark blue shirt underneath. The background is a slightly blurred, high-tech clinical environment with dark tones and cool blue lighting accents. The lighting on his face is soft but precise, conveying authority and approachability in a modern medical setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN-wfwsESke75JMPQJFybEXNj2F-us_WAPc0BZETnOVPjwiENbngQv1s2Egmqb3L5Pzo_APAIFMGZYqZU0xe1nMm_QtDHc5cyaej9ci88TDG-GIl63Dx3OSfJ7HZcCpcdNz3c4JYiYeI009Eoi6b6ciyauK9-k5xvuDCICv42GPapOG0hXGBkS8jx4gqPtreWxDUJ3H_kS54KK3N7cMUyWWBzMNWG0lK22_7TtENq7kVqnPuwcCks-aS6A8IVQnVO5HAbRFIqETlRI">
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-text-primary">Dr. Miller</h3>
+<p class="font-label-sm text-label-sm text-text-secondary">Senior Instructor</p>
+</div>
+</div>
+<div class="flex flex-col py-4">
+<a class="flex items-center gap-4 px-6 py-3 text-secondary-fixed-dim dark:text-secondary font-bold bg-surface-bright/5 border-r-2 border-secondary-fixed-dim transition-transform duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-text-secondary dark:text-on-surface-variant hover:bg-surface-bright/10 transition-transform duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">medical_services</span>
+<span class="font-label-md text-label-md">Procedures</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-text-secondary dark:text-on-surface-variant hover:bg-surface-bright/10 transition-transform duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">view_in_ar</span>
+<span class="font-label-md text-label-md">Anatomy</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-text-secondary dark:text-on-surface-variant hover:bg-surface-bright/10 transition-transform duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full pt-20 pb-24 md:pt-8 md:pb-8 px-margin-mobile md:px-margin-desktop lg:ml-64 max-w-container-max mx-auto min-h-screen flex flex-col">
+<!-- Header Section (Visible on tablet/desktop as page context) -->
+<div class="hidden md:flex justify-between items-end mb-12">
+<div>
+<h1 class="font-headline-xl text-headline-xl text-text-primary mb-2">Teacher Dashboard</h1>
+<p class="font-body-lg text-body-lg text-text-secondary">Manage your augmented reality medical simulations.</p>
+</div>
+<div class="flex items-center gap-4 lg:hidden">
+<!-- Show profile info on tablet since sidebar is hidden -->
+<div class="text-right">
+<h3 class="font-label-md text-label-md text-text-primary">Dr. Miller</h3>
+<p class="font-label-sm text-label-sm text-text-secondary">Senior Instructor</p>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container-high overflow-hidden border border-glass-border">
+<img alt="Teacher Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwb1Z-pMZ57TR4hWMsTJuDDK2NILj-xAbRhpcMljAL8lhcVej_mPpuYm97U0xtbqUSTPZ-6TPpHIVZbNTdBEUcTynFxLAQqY5g19eFJhMOGlotj6asAu3E8Sx0Q2i2_5UOOStGqXKnRKel9V9-h-CHcv9FSwRp8vPAgD51sOOB-8VqjtScFe1XOrG4RNGYWuM-l5Ig3JAh6TgbpejhFcZzn0Dax_TahW03CGX3TV7YvbsYbhbDl5_Fb4PtTATMaSnq9xidgmxnJdkU">
+</div>
+</div>
+</div>
+<!-- Dashboard Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter flex-1">
+<!-- Primary Action Area -->
+<div class="col-span-1 md:col-span-12 lg:col-span-8 flex flex-col gap-gutter">
+<!-- Main CTA Card -->
+<div class="glass-panel rounded-xl p-8 flex flex-col justify-center items-center text-center relative overflow-hidden group min-h-[300px]">
+<!-- Abstract Background Graphic -->
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute w-[500px] h-[500px] bg-[#4f46e5] rounded-full blur-[100px] -top-1/2 -right-1/4 mix-blend-screen transition-opacity group-hover:opacity-40 duration-700"></div>
+</div>
+<div class="relative z-10 w-full max-w-md flex flex-col items-center">
+<span class="material-symbols-outlined text-6xl text-primary-container mb-6" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<button class="w-full h-16 bg-[#00ffff] text-gray-900 font-label-md text-label-md rounded-lg flex items-center justify-center gap-3 hover:bg-[#4f46e5] hover:text-white transition-colors duration-300 glow-active active:scale-95 shadow-lg">
+<span class="material-symbols-outlined">cast</span>
+                            Crear Nueva Sesión AR
+                        </button>
+<p class="mt-6 font-body-md text-body-md text-text-secondary max-w-xs mx-auto">
+                            Proyecta el código QR en clase para que los estudiantes entren
+                        </p>
+</div>
+</div>
+<!-- Secondary Info Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-gutter">
+<!-- Active Sessions -->
+<div class="glass-panel rounded-xl p-6 flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-full bg-[#4f46e5]/20 flex items-center justify-center border border-[#4f46e5]/30">
+<span class="material-symbols-outlined text-[#4f46e5]">sensors</span>
+</div>
+<span class="px-2 py-1 bg-medical-green/20 text-medical-green text-[10px] font-bold uppercase tracking-wider rounded border border-medical-green/30 flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-medical-green animate-pulse"></span>
+                                Live
+                            </span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-text-secondary uppercase mb-1">Sesiones Activas Hoy</p>
+<h2 class="font-headline-xl text-headline-xl text-text-primary">2</h2>
+</div>
+</div>
+<!-- Students Connected -->
+<div class="glass-panel rounded-xl p-6 flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-full bg-surface-bright/40 flex items-center justify-center border border-glass-border">
+<span class="material-symbols-outlined text-text-secondary">groups</span>
+</div>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-text-secondary uppercase mb-1">Estudiantes Conectados</p>
+<h2 class="font-headline-xl text-headline-xl text-text-primary">48</h2>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar / Quick Actions List -->
+<div class="col-span-1 md:col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+<div class="glass-panel rounded-xl p-6 h-full flex flex-col">
+<h3 class="font-headline-md text-headline-md text-text-primary mb-6 flex items-center gap-2 border-b border-glass-border pb-4">
+<span class="material-symbols-outlined text-secondary-fixed-dim">history</span>
+                        Sesiones Recientes
+                    </h3>
+<div class="flex flex-col gap-4 flex-1">
+<!-- Session Item -->
+<div class="p-4 rounded-lg bg-surface-container-high border border-glass-border hover:bg-surface-bright/20 transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-label-md text-label-md text-text-primary group-hover:text-secondary-fixed-dim transition-colors">Anatomía Cardíaca</h4>
+<span class="font-data-mono text-data-mono text-text-secondary text-xs">Ayer</span>
+<div class="relative group/menu">
+    <button class="p-1 hover:bg-surface-bright/20 rounded transition-colors text-text-secondary hover:text-secondary-fixed-dim">
+        <span class="material-symbols-outlined text-[20px]">more_vert</span>
+    </button>
+    <div class="absolute right-0 top-full mt-1 w-32 glass-panel rounded-lg shadow-lg opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-opacity z-50 overflow-hidden">
+        <button class="w-full text-left px-4 py-2 text-label-sm hover:bg-surface-bright/20 transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">edit</span> Editar
+        </button>
+        <button class="w-full text-left px-4 py-2 text-label-sm hover:bg-surface-bright/20 transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">content_copy</span> Duplicar
+        </button>
+        <button class="w-full text-left px-4 py-2 text-label-sm hover:bg-surface-bright/20 transition-colors text-medical-red flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">delete</span> Eliminar
+        </button>
+    </div>
+</div></div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1 text-text-secondary">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-label-sm text-label-sm">24</span>
+</div>
+<div class="flex items-center gap-1 text-text-secondary">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+<span class="font-label-sm text-label-sm">45m</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-3 pt-3 border-t border-glass-border opacity-0 group-hover:opacity-100 transition-opacity duration-200"><button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]">edit</span></button><button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]">content_copy</span></button><button class="p-1 hover:text-medical-red transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button></div></div>
+<!-- Session Item -->
+<div class="p-4 rounded-lg bg-surface-container-high border border-glass-border hover:bg-surface-bright/20 transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-label-md text-label-md text-text-primary group-hover:text-secondary-fixed-dim transition-colors">Neurocirugía Básica</h4>
+<span class="font-data-mono text-data-mono text-text-secondary text-xs">Mar 12</span>
+<div class="relative group/menu">
+    <button class="p-1 hover:bg-surface-bright/20 rounded transition-colors text-text-secondary hover:text-secondary-fixed-dim">
+        <span class="material-symbols-outlined text-[20px]">more_vert</span>
+    </button>
+    <div class="absolute right-0 top-full mt-1 w-32 glass-panel rounded-lg shadow-lg opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-opacity z-50 overflow-hidden">
+        <button class="w-full text-left px-4 py-2 text-label-sm hover:bg-surface-bright/20 transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">edit</span> Editar
+        </button>
+        <button class="w-full text-left px-4 py-2 text-label-sm hover:bg-surface-bright/20 transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">content_copy</span> Duplicar
+        </button>
+        <button class="w-full text-left px-4 py-2 text-label-sm hover:bg-surface-bright/20 transition-colors text-medical-red flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">delete</span> Eliminar
+        </button>
+    </div>
+</div></div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1 text-text-secondary">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-label-sm text-label-sm">18</span>
+</div>
+<div class="flex items-center gap-1 text-text-secondary">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+<span class="font-label-sm text-label-sm">1h 15m</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-3 pt-3 border-t border-glass-border opacity-0 group-hover:opacity-100 transition-opacity duration-200"><button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]">edit</span></button><button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]">content_copy</span></button><button class="p-1 hover:text-medical-red transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button></div></div>
+</div>
+<button class="w-full py-3 mt-4 text-center text-secondary-fixed-dim font-label-md text-label-md border border-secondary-fixed-dim/30 rounded-lg hover:bg-[#4f46e5]/10 hover:text-[#00ffff] transition-colors">
+                        Ver Historial Completo
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<!-- Suppressed based on Semantic Shell Mandate: 
+         - The request focuses heavily on a main CTA ("Crear Nueva Sesión AR") and implies a focused, action-oriented dashboard entry point.
+         - However, this is a top-level "Dashboard" destination.
+         - The BottomNavBar JSON represents a completely different intent context ("AR HUD", "Tools", "Vitals", "Finish") meant for an ACTIVE simulation, NOT the pre-session Teacher Dashboard.
+         - Therefore, including the BottomNavBar here would conflict with the context of the screen. Navigation is handled by the SideNav on Desktop. On mobile, we rely on the header menu actions.
+    -->
+
+
+</body></html>
