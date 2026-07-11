@@ -420,7 +420,7 @@ const App: React.FC = () => {
               onClick={() => setMode(AppMode.QUIZ)}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${mode === AppMode.QUIZ ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
             >
-              Examen
+              Casos
             </button>
           </div>
 
