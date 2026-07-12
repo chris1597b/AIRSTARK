@@ -1,28 +1,322 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface EvaluationProps {
   onExit: () => void;
 }
 
-export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
-  return (
-    <div className="fixed inset-0 z-[100] bg-gray-900 flex">
-      {/* SideNavBar (Desktop Only) */}
-      <nav className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-slate-900 border-r border-white/10 z-40">
-        <div className="p-6 border-b border-white/10 h-16 flex items-center justify-between">
-          <div className="text-2xl font-bold text-cyan-400">
-            AIRSTARK
+type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'estadisticas';
+
+/* ─────────────────────────────────────────────
+   Sub-vista: Panel (dashboard existente)
+───────────────────────────────────────────── */
+const PanelView: React.FC = () => (
+  <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+    {/* Header */}
+    <div className="flex justify-between items-end mb-12">
+      <div>
+        <h1 className="text-4xl font-bold text-white mb-2">Panel de Profesor</h1>
+        <p className="text-lg text-gray-400">Gestiona tus simulaciones médicas en realidad aumentada.</p>
+      </div>
+    </div>
+
+    {/* Bento Grid */}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+      {/* Primary */}
+      <div className="col-span-1 lg:col-span-8 flex flex-col gap-6">
+        <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-8 flex flex-col justify-center items-center text-center relative overflow-hidden group min-h-[300px]">
+          <div className="absolute inset-0 opacity-20 pointer-events-none">
+            <div className="absolute w-[500px] h-[500px] bg-indigo-600 rounded-full blur-[100px] -top-1/2 -right-1/4 mix-blend-screen transition-opacity group-hover:opacity-40 duration-700" />
           </div>
-          <button onClick={onExit} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white" title="Volver">
-            <span className="material-symbols-outlined">arrow_back</span>
+          <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+            <span className="material-symbols-outlined text-6xl text-cyan-400 mb-6" style={{ fontVariationSettings: "'FILL' 1", fontSize: '64px' }}>add_circle</span>
+            <button className="w-full h-16 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-indigo-600 hover:text-white transition-colors duration-300 shadow-[0_0_15px_rgba(0,255,255,0.4)] active:scale-95">
+              <span className="material-symbols-outlined">cast</span>
+              Crear Nueva Sesión AR
+            </button>
+            <p className="mt-6 text-sm text-gray-400 max-w-xs mx-auto">
+              Proyecta el código QR en clase para que los estudiantes entren
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 flex flex-col gap-4">
+            <div className="flex justify-between items-start">
+              <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center border border-indigo-600/30">
+                <span className="material-symbols-outlined text-indigo-400" style={{ fontSize: '20px' }}>sensors</span>
+              </div>
+              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider rounded border border-green-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+                Live
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Sesiones Activas Hoy</p>
+              <h2 className="text-4xl font-bold text-white">2</h2>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 flex flex-col gap-4">
+            <div className="flex justify-between items-start">
+              <div className="w-10 h-10 rounded-full bg-slate-700/40 flex items-center justify-center border border-white/10">
+                <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '20px' }}>groups</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Estudiantes Conectados</p>
+              <h2 className="text-4xl font-bold text-white">48</h2>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sidebar */}
+      <div className="col-span-1 lg:col-span-4 flex flex-col gap-6">
+        <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-full flex flex-col">
+          <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
+            <span className="material-symbols-outlined text-cyan-400" style={{ fontSize: '20px' }}>history</span>
+            Sesiones Recientes
+          </h3>
+          <div className="flex flex-col gap-4 flex-1">
+            {[
+              { title: 'Anatomía Cardíaca', date: 'Ayer', students: 24, duration: '45m' },
+              { title: 'Neurocirugía Básica', date: 'Mar 12', students: 18, duration: '1h 15m' },
+            ].map((s, i) => (
+              <div key={i} className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors cursor-pointer group">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors">{s.title}</h4>
+                  <span className="text-xs text-gray-400">{s.date}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1 text-gray-400">
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>groups</span>
+                    <span className="text-xs">{s.students}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-400">
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>timer</span>
+                    <span className="text-xs">{s.duration}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="w-full py-3 mt-4 text-center text-cyan-400 text-sm font-semibold border border-cyan-400/30 rounded-lg hover:bg-indigo-600/20 hover:text-cyan-300 transition-colors">
+            Ver Historial Completo
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   Sub-vista: Información (desde Stitch)
+───────────────────────────────────────────── */
+const InformacionView: React.FC = () => {
+  const [timeValue, setTimeValue] = useState(5);
+
+  return (
+    <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+      {/* Header */}
+      <header className="mb-8">
+        <div className="flex items-center gap-2 text-gray-400 mb-2">
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>medical_services</span>
+          <span className="text-xs font-bold uppercase tracking-widest">Procedimientos / Evaluación</span>
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-white">Información General</h1>
+        <p className="text-gray-400 mt-2">Datos iniciales de la sesión</p>
+      </header>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
+        {/* Columna Izquierda */}
+        <div className="xl:col-span-4 space-y-6">
+
+          {/* Fecha de Creación */}
+          <section className="relative overflow-hidden rounded-xl p-6" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-400 rounded-l-xl" />
+            <div className="mb-2">
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Fecha de Creación</div>
+              <div className="text-base font-bold text-cyan-400">Marzo 14, 2024</div>
+            </div>
+          </section>
+
+          {/* Duración */}
+          <section className="relative rounded-xl p-6" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="absolute top-0 left-0 w-1 h-full bg-gray-600 rounded-l-xl" />
+            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+              <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '22px' }}>timer</span>
+              Duración
+            </h2>
+            <div className="mb-4">
+              <div className="flex justify-between items-end mb-3">
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Tiempo Límite</span>
+                <div className="bg-gray-800/80 px-3 py-1 rounded border border-white/10 flex items-center gap-1">
+                  <span className="text-2xl font-bold text-cyan-400">{timeValue}</span>
+                  <span className="text-xs font-bold text-gray-400 ml-1">MIN</span>
+                </div>
+              </div>
+              <div className="relative w-full">
+                <input
+                  className="w-full h-1 rounded-full appearance-none cursor-pointer"
+                  type="range"
+                  min={3}
+                  max={30}
+                  value={timeValue}
+                  onChange={e => setTimeValue(Number(e.target.value))}
+                  style={{
+                    background: `linear-gradient(to right, #22d3ee ${((timeValue - 3) / 27) * 100}%, #374151 ${((timeValue - 3) / 27) * 100}%)`
+                  }}
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                  <span>3 min</span>
+                  <span>15 min</span>
+                  <span>30 min</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Estado de sesión */}
+          <section className="relative overflow-hidden rounded-xl p-6" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-400 rounded-l-xl" />
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Estado de la Sesión</div>
+            <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse inline-block" />
+              ACTIVA
+            </div>
+          </section>
+        </div>
+
+        {/* Columna Derecha */}
+        <div className="xl:col-span-8 flex flex-col">
+          <section className="rounded-xl p-6 flex-1 flex flex-col relative" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="absolute top-0 left-0 w-1 h-full bg-gray-600 rounded-l-xl" />
+
+            <div className="space-y-8 flex-1">
+              {/* Nombre de la sesión */}
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2" htmlFor="session-name">
+                  Nombre de la Sesión
+                </label>
+                <div className="relative">
+                  <input
+                    id="session-name"
+                    type="text"
+                    placeholder="Ej. Evaluación de Válvula Mitral"
+                    className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200"
+                  />
+                  <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-cyan-400 transition-all duration-300 group-focus-within:w-full rounded-b-lg" />
+                </div>
+              </div>
+
+              {/* Descripción de la sesión */}
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2" htmlFor="session-desc">
+                  Descripción de la Sesión
+                </label>
+                <div className="relative">
+                  <textarea
+                    id="session-desc"
+                    rows={8}
+                    placeholder="Describa los objetivos y el contexto de esta evaluación..."
+                    className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200 resize-none"
+                  />
+                  <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-cyan-400 transition-all duration-300 group-focus-within:w-full rounded-b-lg" />
+                </div>
+              </div>
+
+              {/* Órgano */}
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                  Órgano de Estudio
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { icon: 'favorite', label: 'Corazón', active: true },
+                    { icon: 'psychology', label: 'Cerebro', active: false },
+                    { icon: 'air', label: 'Pulmones', active: false },
+                    { icon: 'water_drop', label: 'Riñones', active: false },
+                  ].map((organ) => (
+                    <button
+                      key={organ.label}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200 ${
+                        organ.active
+                          ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/30 hover:text-white'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: organ.active ? "'FILL' 1" : "'FILL' 0" }}>
+                        {organ.icon}
+                      </span>
+                      <span className="text-xs font-semibold">{organ.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Acción */}
+            <div className="flex justify-end mt-8 pt-4 border-t border-white/10">
+              <button className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center gap-2 hover:bg-cyan-300 transition-colors shadow-[0_0_20px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_forward</span>
+                Siguiente
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Placeholder genérico para otras pestañas
+───────────────────────────────────────────── */
+const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
+  <div className="flex flex-col items-center justify-center flex-1 text-gray-600">
+    <span className="material-symbols-outlined mb-4" style={{ fontSize: '64px', fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+    <p className="text-lg font-semibold">{label}</p>
+    <p className="text-sm mt-1">Próximamente disponible</p>
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   Componente principal
+───────────────────────────────────────────── */
+export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
+  const [activeTab, setActiveTab] = useState<Tab>('panel');
+
+  const navItems: { tab: Tab; icon: string; label: string }[] = [
+    { tab: 'panel',         icon: 'space_dashboard', label: 'Panel' },
+    { tab: 'informacion',   icon: 'monitor_heart',   label: 'Información' },
+    { tab: 'modelo',        icon: '3d_rotation',     label: 'Modelo' },
+    { tab: 'cuestionario',  icon: 'quiz',            label: 'Cuestionario' },
+    { tab: 'estadisticas',  icon: 'query_stats',     label: 'Estadísticas' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-gray-900 flex">
+      {/* ── SideNavBar (desktop) ── */}
+      <nav className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-slate-900 border-r border-white/10 z-40">
+        {/* Logo */}
+        <div className="p-6 border-b border-white/10 h-16 flex items-center justify-between">
+          <div className="text-2xl font-bold text-cyan-400">AIRSTARK</div>
+          <button
+            onClick={onExit}
+            className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white"
+            title="Volver"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>arrow_back</span>
+          </button>
+        </div>
+
+        {/* Perfil */}
         <div className="p-6 flex items-center gap-4 border-b border-white/10">
-          <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden border border-white/10">
-            <img 
-              alt="Teacher Profile" 
-              className="w-full h-full object-cover" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN-wfwsESke75JMPQJFybEXNj2F-us_WAPc0BZETnOVPjwiENbngQv1s2Egmqb3L5Pzo_APAIFMGZYqZU0xe1nMm_QtDHc5cyaej9ci88TDG-GIl63Dx3OSfJ7HZcCpcdNz3c4JYiYeI009Eoi6b6ciyauK9-k5xvuDCICv42GPapOG0hXGBkS8jx4gqPtreWxDUJ3H_kS54KK3N7cMUyWWBzMNWG0lK22_7TtENq7kVqnPuwcCks-aS6A8IVQnVO5HAbRFIqETlRI" 
+          <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center">
+            <img
+              alt="Teacher Profile"
+              className="w-full h-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN-wfwsESke75JMPQJFybEXNj2F-us_WAPc0BZETnOVPjwiENbngQv1s2Egmqb3L5Pzo_APAIFMGZYqZU0xe1nMm_QtDHc5cyaej9ci88TDG-GIl63Dx3OSfJ7HZcCpcdNz3c4JYiYeI009Eoi6b6ciyauK9-k5xvuDCICv42GPapOG0hXGBkS8jx4gqPtreWxDUJ3H_kS54KK3N7cMUyWWBzMNWG0lK22_7TtENq7kVqnPuwcCks-aS6A8IVQnVO5HAbRFIqETlRI"
             />
           </div>
           <div>
@@ -30,144 +324,82 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
             <p className="text-xs text-gray-400">Instructor Principal</p>
           </div>
         </div>
+
+        {/* Nav items */}
         <div className="flex flex-col py-4">
-          <a className="flex items-center gap-4 px-6 py-3 text-cyan-400 font-bold bg-white/5 border-r-2 border-cyan-400 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>space_dashboard</span>
-            <span className="text-sm font-semibold">Panel</span>
-          </a>
-          <a className="flex items-center gap-4 px-6 py-3 text-gray-400 hover:bg-white/5 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined">monitor_heart</span>
-            <span className="text-sm font-semibold">Procedimientos</span>
-          </a>
-          <a className="flex items-center gap-4 px-6 py-3 text-gray-400 hover:bg-white/5 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined">3d_rotation</span>
-            <span className="text-sm font-semibold">Anatomía</span>
-          </a>
-          <a className="flex items-center gap-4 px-6 py-3 text-gray-400 hover:bg-white/5 transition-transform duration-150 ease-in-out" href="#">
-            <span className="material-symbols-outlined">query_stats</span>
-            <span className="text-sm font-semibold">Estadísticas</span>
-          </a>
+          {navItems.map(({ tab, icon, label }) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex items-center gap-4 px-6 py-3 transition-all duration-150 text-left w-full ${
+                  isActive
+                    ? 'text-cyan-400 font-bold bg-white/5 border-r-2 border-cyan-400'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                }`}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: '22px',
+                    fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
+                  }}
+                >
+                  {icon}
+                </span>
+                <span className="text-sm font-semibold">{label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 w-full lg:ml-64 bg-gray-900 overflow-y-auto pt-12 pb-12 px-8 flex flex-col">
-        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
-          {/* Header Section */}
-          <div className="flex justify-between items-end mb-12">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Panel de Profesor</h1>
-              <p className="text-lg text-gray-400">Gestiona tus simulaciones médicas en realidad aumentada.</p>
-            </div>
-          </div>
+      {/* ── Mobile top bar ── */}
+      <header className="lg:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-14 bg-slate-900/90 backdrop-blur-xl border-b border-white/10">
+        <div className="text-xl font-bold text-cyan-400">AIRSTARK</div>
+        <button onClick={onExit} className="p-1.5 text-gray-400 hover:text-white">
+          <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>arrow_back</span>
+        </button>
+      </header>
 
-          {/* Dashboard Bento Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-            {/* Primary Action Area */}
-            <div className="col-span-1 lg:col-span-8 flex flex-col gap-6">
-              {/* Main CTA Card */}
-              <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-8 flex flex-col justify-center items-center text-center relative overflow-hidden group min-h-[300px]">
-                {/* Abstract Background Graphic */}
-                <div className="absolute inset-0 opacity-20 pointer-events-none">
-                  <div className="absolute w-[500px] h-[500px] bg-indigo-600 rounded-full blur-[100px] -top-1/2 -right-1/4 mix-blend-screen transition-opacity group-hover:opacity-40 duration-700"></div>
-                </div>
-                <div className="relative z-10 w-full max-w-md flex flex-col items-center">
-                  <span className="material-symbols-outlined text-6xl text-cyan-400 mb-6" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
-                  <button className="w-full h-16 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-indigo-600 hover:text-white transition-colors duration-300 shadow-[0_0_15px_rgba(0,255,255,0.4)] active:scale-95">
-                    <span className="material-symbols-outlined">cast</span>
-                    Crear Nueva Sesión AR
-                  </button>
-                  <p className="mt-6 text-sm text-gray-400 max-w-xs mx-auto">
-                    Proyecta el código QR en clase para que los estudiantes entren
-                  </p>
-                </div>
-              </div>
+      {/* ── Mobile bottom nav ── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-2 bg-slate-900/90 backdrop-blur-md border-t border-white/10">
+        {navItems.map(({ tab, icon, label }) => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
+                isActive ? 'text-cyan-400 bg-cyan-400/10' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  fontSize: '22px',
+                  fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
+                }}
+              >
+                {icon}
+              </span>
+              <span className="text-[10px] font-semibold">{label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
-              {/* Secondary Info Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* Active Sessions */}
-                <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 flex flex-col gap-4">
-                  <div className="flex justify-between items-start">
-                    <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center border border-indigo-600/30">
-                      <span className="material-symbols-outlined text-indigo-500">sensors</span>
-                    </div>
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider rounded border border-green-500/30 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                      Live
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Sesiones Activas Hoy</p>
-                    <h2 className="text-4xl font-bold text-white">2</h2>
-                  </div>
-                </div>
+      {/* ── Main Content ── */}
+      <main className="flex-1 w-full lg:ml-64 bg-gray-900 overflow-y-auto pt-20 lg:pt-12 pb-24 lg:pb-12 px-4 md:px-8 flex flex-col">
+        {/* Glow decorativo */}
+        <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
-                {/* Students Connected */}
-                <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 flex flex-col gap-4">
-                  <div className="flex justify-between items-start">
-                    <div className="w-10 h-10 rounded-full bg-slate-700/40 flex items-center justify-center border border-white/10">
-                      <span className="material-symbols-outlined text-gray-400">groups</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Estudiantes Conectados</p>
-                    <h2 className="text-4xl font-bold text-white">48</h2>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar / Quick Actions List */}
-            <div className="col-span-1 lg:col-span-4 flex flex-col gap-6">
-              <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-full flex flex-col">
-                <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
-                  <span className="material-symbols-outlined text-cyan-400">history</span>
-                  Sesiones Recientes
-                </h3>
-                <div className="flex flex-col gap-4 flex-1">
-                  {/* Session Item 1 */}
-                  <div className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors cursor-pointer group">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors">Anatomía Cardíaca</h4>
-                      <span className="text-xs text-gray-400">Ayer</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1 text-gray-400">
-                        <span className="material-symbols-outlined text-[16px]">groups</span>
-                        <span className="text-xs">24</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-gray-400">
-                        <span className="material-symbols-outlined text-[16px]">timer</span>
-                        <span className="text-xs">45m</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Session Item 2 */}
-                  <div className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors cursor-pointer group">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors">Neurocirugía Básica</h4>
-                      <span className="text-xs text-gray-400">Mar 12</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1 text-gray-400">
-                        <span className="material-symbols-outlined text-[16px]">groups</span>
-                        <span className="text-xs">18</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-gray-400">
-                        <span className="material-symbols-outlined text-[16px]">timer</span>
-                        <span className="text-xs">1h 15m</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <button className="w-full py-3 mt-4 text-center text-cyan-400 text-sm font-semibold border border-cyan-400/30 rounded-lg hover:bg-indigo-600/20 hover:text-cyan-300 transition-colors">
-                  Ver Historial Completo
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        {activeTab === 'panel'        && <PanelView />}
+        {activeTab === 'informacion'  && <InformacionView />}
+        {activeTab === 'modelo'       && <PlaceholderView icon="3d_rotation" label="Vista del Modelo 3D" />}
+        {activeTab === 'cuestionario' && <PlaceholderView icon="quiz" label="Cuestionario de Evaluación" />}
+        {activeTab === 'estadisticas' && <PlaceholderView icon="query_stats" label="Estadísticas de Sesión" />}
       </main>
     </div>
   );

@@ -51,3 +51,41 @@
   z-index: 80;
   transition: opacity 0.5s ease;
 }
+
+/* ── Custom Range Slider (Evaluation / Información) ── */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  margin-top: -7px;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+  transition: transform 0.15s ease;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+input[type=range]::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+}
+
