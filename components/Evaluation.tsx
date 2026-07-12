@@ -217,40 +217,10 @@ const InformacionView: React.FC = () => {
                 <div className="relative">
                   <textarea
                     id="session-desc"
-                    rows={8}
+                    rows={15}
                     placeholder="Describa los objetivos y el contexto de esta evaluación..."
                     className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200 resize-none"
                   />
-                  <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-cyan-400 transition-all duration-300 group-focus-within:w-full rounded-b-lg" />
-                </div>
-              </div>
-
-              {/* Órgano */}
-              <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-                  Órgano de Estudio
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { icon: 'favorite', label: 'Corazón', active: true },
-                    { icon: 'psychology', label: 'Cerebro', active: false },
-                    { icon: 'air', label: 'Pulmones', active: false },
-                    { icon: 'water_drop', label: 'Riñones', active: false },
-                  ].map((organ) => (
-                    <button
-                      key={organ.label}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200 ${
-                        organ.active
-                          ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400'
-                          : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/30 hover:text-white'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: organ.active ? "'FILL' 1" : "'FILL' 0" }}>
-                        {organ.icon}
-                      </span>
-                      <span className="text-xs font-semibold">{organ.label}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
