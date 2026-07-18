@@ -4,7 +4,7 @@ interface EvaluationProps {
   onExit: () => void;
 }
 
-type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'estadisticas';
+type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | 'estadisticas';
 
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
@@ -359,7 +359,7 @@ const ModeloView: React.FC = () => {
 /* ─────────────────────────────────────────────
    Sub-vista: Cuestionario
 ───────────────────────────────────────────── */
-const CuestionarioView: React.FC = () => {
+const CuestionarioView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       <header className="mb-8">
@@ -481,11 +481,111 @@ const CuestionarioView: React.FC = () => {
 
       {/* Action Bar */}
       <div className="flex justify-end mt-8 pt-6 border-t border-white/10">
-        <button className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
+        <button onClick={onNext} className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
           <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>qr_code_2</span>
           Generar código QR
         </button>
       </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Sub-vista: Código QR
+───────────────────────────────────────────── */
+const CodigoQRView: React.FC = () => {
+  return (
+    <div className="w-full flex-1 flex flex-col lg:flex-row gap-8 -mx-4 md:-mx-8 px-4 md:px-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col items-center justify-center relative">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-400/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
+        
+        <div className="w-full max-w-2xl flex flex-col items-center text-center space-y-8 relative z-10">
+          <div className="flex flex-col items-center space-y-4">
+            <span className="material-symbols-outlined text-green-400 text-5xl drop-shadow-[0_0_15px_rgba(46,204,113,0.3)]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+            <h1 className="text-4xl font-bold text-white tracking-tight">Sesión de Corazón</h1>
+            <p className="text-xl font-bold text-white md:hidden">Sesión Lista para la Clase</p>
+          </div>
+          
+          <div className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 backdrop-blur-md px-4 py-2 rounded-full">
+            <span className="material-symbols-outlined text-indigo-400 text-sm">schedule</span>
+            <span className="text-sm font-bold text-indigo-400">Código válido por 2 horas</span>
+          </div>
+          
+          <div className="flex items-center justify-center gap-6 mt-2">
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest opacity-80">tiempo limite</span>
+              <span className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.2)]">5 MIN</span>
+            </div>
+            <div className="w-px h-8 bg-white/10"></div>
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest opacity-80">preguntas</span>
+              <span className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.2)]">3</span>
+            </div>
+          </div>
+          
+          <div className="bg-gray-800/60 backdrop-blur-xl border border-white/10 p-6 rounded-xl shadow-2xl relative group">
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-xl pointer-events-none"></div>
+            <div className="w-[300px] h-[300px] bg-white rounded-lg p-4 flex items-center justify-center relative overflow-hidden ring-1 ring-white/20 shadow-[0_0_30px_rgba(0,255,255,0.1)] group-hover:shadow-[0_0_40px_rgba(0,255,255,0.2)] transition-shadow duration-500">
+              <div className="w-full h-full opacity-20" style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMCAwaDEwdjEwSDB6IiBmaWxsPSIjMDAwIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiLz48L3N2Zz4=')", backgroundSize: '20px 20px' }}></div>
+              <span className="absolute text-gray-900 text-sm font-bold uppercase tracking-widest opacity-50">QR PLACEHOLDER</span>
+              <div className="absolute top-2 left-2 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-md"></div>
+              <div className="absolute top-2 right-2 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-md"></div>
+              <div className="absolute bottom-2 left-2 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-md"></div>
+              <div className="absolute bottom-2 right-2 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-md"></div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full pt-4">
+            <button className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all duration-200 active:scale-95">
+              <span className="material-symbols-outlined text-lg">content_copy</span>
+              <span>Copiar Enlace de Invitación</span>
+            </button>
+            <button className="w-full sm:w-auto h-12 px-8 bg-transparent border-2 border-indigo-500 text-indigo-400 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-indigo-500/10 transition-all duration-200 active:scale-95">
+              <span className="material-symbols-outlined text-lg">monitoring</span>
+              <span>Ir a Resultados en Vivo</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Sidebar: Live Status */}
+      <aside className="w-full lg:w-80 bg-gray-800/80 backdrop-blur-xl border border-white/10 rounded-xl flex flex-col z-20 overflow-hidden">
+        <div className="p-6 flex-1 flex flex-col">
+          <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+            <h2 className="text-2xl font-bold text-white">Estado</h2>
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_#2ECC71]"></div>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+            <div className="w-full max-h-48 overflow-y-auto bg-gray-900/50 border border-white/10 rounded-xl p-4 space-y-3 mb-4 custom-scrollbar">
+              <div className="flex items-center space-x-3 border-b border-white/10 pb-2">
+                <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                <span className="text-sm font-medium text-white">Ana Martínez</span>
+              </div>
+              <div className="flex items-center space-x-3 border-b border-white/10 pb-2">
+                <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                <span className="text-sm font-medium text-white">Carlos Ramírez</span>
+              </div>
+              <div className="flex items-center space-x-3 pb-1">
+                <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                <span className="text-sm font-medium text-white">Laura Gómez</span>
+              </div>
+            </div>
+            
+            <div className="relative w-48 h-48 rounded-full border border-white/10 bg-gray-900/50 flex flex-col items-center justify-center shadow-inner">
+              <div className="absolute inset-2 rounded-full border-2 border-dashed border-indigo-500/30 animate-[spin_20s_linear_infinite]"></div>
+              <span className="text-[72px] leading-none text-cyan-400 drop-shadow-[0_0_15px_rgba(0,255,255,0.2)] font-bold tracking-tighter">3</span>
+              <span className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-[0.15em]">Estudiantes<br/>Conectados</span>
+            </div>
+            
+            <div className="flex items-center space-x-3 text-gray-400 bg-gray-900 px-4 py-2 rounded-full border border-white/10">
+              <span className="material-symbols-outlined text-cyan-400 animate-[spin_3s_linear_infinite]" style={{ fontSize: '20px' }}>sync</span>
+              <span className="text-sm font-medium">Sincronización activa</span>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 };
@@ -512,6 +612,7 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
     { tab: 'informacion',   icon: 'monitor_heart',   label: 'Información' },
     { tab: 'modelo',        icon: '3d_rotation',     label: 'Modelo' },
     { tab: 'cuestionario',  icon: 'quiz',            label: 'Cuestionario' },
+    { tab: 'codigo_qr',     icon: 'qr_code_2',       label: 'Código QR' },
     { tab: 'estadisticas',  icon: 'query_stats',     label: 'Estadísticas' },
   ];
 
@@ -619,7 +720,8 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         {activeTab === 'panel'        && <PanelView />}
         {activeTab === 'informacion'  && <InformacionView />}
         {activeTab === 'modelo'       && <ModeloView />}
-        {activeTab === 'cuestionario' && <CuestionarioView />}
+        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} />}
+        {activeTab === 'codigo_qr'    && <CodigoQRView />}
         {activeTab === 'estadisticas' && <PlaceholderView icon="query_stats" label="Estadísticas de Sesión" />}
       </main>
     </div>
