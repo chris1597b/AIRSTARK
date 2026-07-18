@@ -493,7 +493,7 @@ const CuestionarioView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
 /* ─────────────────────────────────────────────
    Sub-vista: Código QR
 ───────────────────────────────────────────── */
-const CodigoQRView: React.FC = () => {
+const CodigoQRView: React.FC<{ onNavigateToStats: () => void }> = ({ onNavigateToStats }) => {
   return (
     <div className="w-full flex-1 flex flex-col lg:flex-row gap-8 -mx-4 md:-mx-8 px-4 md:px-8">
       {/* Main Content Area */}
@@ -542,7 +542,7 @@ const CodigoQRView: React.FC = () => {
               <span className="material-symbols-outlined text-lg">content_copy</span>
               <span>Copiar Enlace de Invitación</span>
             </button>
-            <button className="w-full sm:w-auto h-12 px-8 bg-transparent border-2 border-indigo-500 text-indigo-400 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-indigo-500/10 transition-all duration-200 active:scale-95">
+            <button onClick={onNavigateToStats} className="w-full sm:w-auto h-12 px-8 bg-transparent border-2 border-indigo-500 text-indigo-400 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-indigo-500/10 transition-all duration-200 active:scale-95">
               <span className="material-symbols-outlined text-lg">monitoring</span>
               <span>Ir a Resultados en Vivo</span>
             </button>
@@ -586,6 +586,143 @@ const CodigoQRView: React.FC = () => {
           </div>
         </div>
       </aside>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Sub-vista: Estadísticas
+───────────────────────────────────────────── */
+const EstadisticasView: React.FC = () => {
+  return (
+    <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+      {/* Context Header */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-white/10 mb-8">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="flex items-center justify-center w-8 h-8 rounded bg-cyan-400/20 text-cyan-400">
+              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+            </span>
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Sesión: Corazón</h1>
+          </div>
+          <div className="flex flex-wrap gap-4 text-gray-400 text-sm font-semibold">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">timer</span>
+              <span>Tiempo: 5 min</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">groups</span>
+              <span>Estudiantes: 3/30</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+            <span className="text-xs font-bold text-green-400 uppercase tracking-widest">EN VIVO</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Live Table Dashboard */}
+      <section className="bg-gray-800/60 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl flex-1 flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-900/50 border-b border-white/10 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                <th className="p-5 font-semibold">Estudiante</th>
+                <th className="p-5 font-semibold">Estado</th>
+                <th className="p-5 font-semibold">Tiempo</th>
+                <th className="p-5 font-semibold">Puntaje</th>
+                <th className="p-5 font-semibold text-right">Nota Final</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {/* Row 1: Completed */}
+              <tr className="hover:bg-slate-700/30 transition-colors">
+                <td className="p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
+                      AM
+                    </div>
+                    <span className="text-white font-medium text-sm">Ana Martínez</span>
+                  </div>
+                </td>
+                <td className="p-5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                    Completado
+                  </span>
+                </td>
+                <td className="p-5 text-gray-400 text-sm font-medium">04:12</td>
+                <td className="p-5 text-gray-400 text-sm font-medium">3/3</td>
+                <td className="p-5 text-right">
+                  <span className="text-green-400 font-bold text-lg">20/20</span>
+                </td>
+              </tr>
+              {/* Row 2: In Progress */}
+              <tr className="hover:bg-slate-700/30 transition-colors bg-cyan-400/5 relative">
+                <td className="p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
+                      CR
+                    </div>
+                    <span className="text-white font-medium text-sm">Carlos Ramírez</span>
+                  </div>
+                </td>
+                <td className="p-5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyan-400/10 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="material-symbols-outlined text-[14px] animate-[spin_2s_linear_infinite]">sync</span>
+                    En Progreso
+                  </span>
+                </td>
+                <td className="p-5 text-gray-400 text-sm font-medium">03:45</td>
+                <td className="p-5 text-gray-400 text-sm font-medium">2/3</td>
+                <td className="p-5 text-right">
+                  <span className="text-gray-500 font-bold text-lg">--/20</span>
+                </td>
+              </tr>
+              {/* Row 3: Completed with errors */}
+              <tr className="hover:bg-slate-700/30 transition-colors">
+                <td className="p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
+                      LG
+                    </div>
+                    <span className="text-white font-medium text-sm">Laura Gómez</span>
+                  </div>
+                </td>
+                <td className="p-5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                    Completado
+                  </span>
+                </td>
+                <td className="p-5 text-gray-400 text-sm font-medium">04:58</td>
+                <td className="p-5 text-gray-400 text-sm font-medium">2/3</td>
+                <td className="p-5 text-right">
+                  <span className="text-cyan-400 font-bold text-lg">14/20</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Spacer to push footer down */}
+        <div className="flex-1"></div>
+
+        {/* Footer & Action */}
+        <div className="bg-gray-900/50 p-6 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400 text-sm font-semibold uppercase tracking-wider">Promedio de la clase:</span>
+            <span className="text-white font-bold text-xl">17.3/20</span>
+          </div>
+          <button className="w-full sm:w-auto h-12 px-6 bg-cyan-400 hover:bg-cyan-300 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)]">
+            <span className="material-symbols-outlined text-[20px]">download</span>
+            Descargar Reporte PDF
+          </button>
+        </div>
+      </section>
     </div>
   );
 };
@@ -721,8 +858,8 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         {activeTab === 'informacion'  && <InformacionView />}
         {activeTab === 'modelo'       && <ModeloView />}
         {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} />}
-        {activeTab === 'codigo_qr'    && <CodigoQRView />}
-        {activeTab === 'estadisticas' && <PlaceholderView icon="query_stats" label="Estadísticas de Sesión" />}
+        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} />}
+        {activeTab === 'estadisticas' && <EstadisticasView />}
       </main>
     </div>
   );
