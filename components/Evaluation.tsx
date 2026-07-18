@@ -240,6 +240,123 @@ const InformacionView: React.FC = () => {
 };
 
 /* ─────────────────────────────────────────────
+   Sub-vista: Modelo
+───────────────────────────────────────────── */
+const ModeloView: React.FC = () => {
+  return (
+    <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+      <header className="mb-10">
+        <div className="flex items-center gap-2 text-gray-400 mb-3">
+          <span className="material-symbols-outlined text-sm">medical_services</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Procedures / Evaluation</span>
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Selección o Carga del Modelo</h1>
+        <p className="text-gray-400 mt-2 text-lg max-w-2xl">Configure los parámetros del modelo anatómico para la visualización AR.</p>
+      </header>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
+        {/* Left Column: Model Selection */}
+        <div className="xl:col-span-4 flex flex-col gap-6">
+          <section className="rounded-xl p-6 border-l-4 border-l-cyan-400" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-cyan-400">biotech</span>
+              Modelos Disponibles
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Model Card Active */}
+              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-cyan-400/10 border border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/20 transition-all group">
+                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>cardiology</span>
+                <span className="text-xs font-bold uppercase tracking-tight">Heart</span>
+              </button>
+              {/* Model Card */}
+              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-slate-800/50 border border-white/10 text-gray-400 hover:border-gray-400 hover:text-white transition-all group">
+                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform">neurology</span>
+                <span className="text-xs font-bold uppercase tracking-tight">Brain</span>
+              </button>
+              {/* Model Card */}
+              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-slate-800/50 border border-white/10 text-gray-400 hover:border-gray-400 hover:text-white transition-all group">
+                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform">pulmonology</span>
+                <span className="text-xs font-bold uppercase tracking-tight">Lungs</span>
+              </button>
+              {/* Model Card */}
+              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-slate-800/50 border border-white/10 text-gray-400 hover:border-gray-400 hover:text-white transition-all group">
+                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform">nephrology</span>
+                <span className="text-xs font-bold uppercase tracking-tight">Kidneys</span>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column: Details & Upload */}
+        <div className="xl:col-span-8 flex flex-col">
+          <section className="rounded-xl p-8 border-l-4 border-l-gray-600 flex-1" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <h2 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+              <span className="material-symbols-outlined text-cyan-400">view_in_ar</span>
+              Detalles del Modelo
+            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider" htmlFor="model-name">Nombre del Modelo</label>
+                  <input className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all" id="model-name" placeholder="e.g. Anomalía Ventricular Izquierda" type="text" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider" htmlFor="description">Descripción Clínica</label>
+                  <textarea className="w-full h-32 bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all resize-none" id="description" placeholder="Describa el contexto clínico y detalles específicos del modelo..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Archivo Geometría (GLB)</label>
+                  <div className="border-2 border-dashed border-white/10 rounded-lg p-8 flex flex-col items-center justify-center gap-3 hover:border-cyan-400/50 hover:bg-cyan-400/5 cursor-pointer transition-all group">
+                    <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center text-gray-400 group-hover:text-cyan-400 transition-colors">
+                      <span className="material-symbols-outlined text-2xl">cloud_upload</span>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-white">Cargar archivo .glb</p>
+                      <p className="text-[10px] text-gray-400 uppercase mt-1">Máximo: 50MB</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Miniatura del Modelo 3D</label>
+                <div className="aspect-square w-full bg-gray-900/60 border border-white/10 rounded-xl flex flex-col items-center justify-center relative overflow-hidden group">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-gray-400 group-hover:text-cyan-400 transition-colors z-10">
+                    <div className="w-20 h-20 rounded-2xl bg-slate-700/50 flex items-center justify-center shadow-lg group-hover:shadow-cyan-400/10 transition-all">
+                      <span className="material-symbols-outlined text-4xl">add_a_photo</span>
+                    </div>
+                    <p className="text-xs font-bold uppercase tracking-widest">Añadir Miniatura</p>
+                  </div>
+                  <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                  <div className="absolute inset-0 bg-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"></div>
+                </div>
+                <div className="flex items-start gap-3 p-4 bg-slate-700/20 rounded-lg border border-white/5">
+                  <span className="material-symbols-outlined text-cyan-400 text-lg">info</span>
+                  <p className="text-[11px] text-gray-400 leading-relaxed italic">
+                    Esta imagen se utilizará como vista previa en el visor de Realidad Aumentada (AR) para los estudiantes.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row justify-end items-center gap-4 mt-8 pt-6 border-t border-white/10">
+        <button className="w-full sm:w-auto h-12 px-8 text-gray-400 font-bold text-xs uppercase tracking-widest hover:text-white transition-colors">
+          Cancelar
+        </button>
+        <button className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] group active:scale-95">
+          Guardar Modelo y Continuar
+          <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform" style={{ fontSize: '20px' }}>arrow_forward</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
    Placeholder genérico para otras pestañas
 ───────────────────────────────────────────── */
 const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
@@ -367,7 +484,7 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
 
         {activeTab === 'panel'        && <PanelView />}
         {activeTab === 'informacion'  && <InformacionView />}
-        {activeTab === 'modelo'       && <PlaceholderView icon="3d_rotation" label="Vista del Modelo 3D" />}
+        {activeTab === 'modelo'       && <ModeloView />}
         {activeTab === 'cuestionario' && <PlaceholderView icon="quiz" label="Cuestionario de Evaluación" />}
         {activeTab === 'estadisticas' && <PlaceholderView icon="query_stats" label="Estadísticas de Sesión" />}
       </main>
