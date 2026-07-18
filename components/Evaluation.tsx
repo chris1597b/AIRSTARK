@@ -9,7 +9,7 @@ type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | '
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
 ───────────────────────────────────────────── */
-const PanelView: React.FC = () => (
+const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => (
   <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
     {/* Header */}
     <div className="flex justify-between items-end mb-12">
@@ -29,7 +29,7 @@ const PanelView: React.FC = () => (
           </div>
           <div className="relative z-10 w-full max-w-md flex flex-col items-center">
             <span className="material-symbols-outlined text-6xl text-cyan-400 mb-6" style={{ fontVariationSettings: "'FILL' 1", fontSize: '64px' }}>add_circle</span>
-            <button className="w-full h-16 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-indigo-600 hover:text-white transition-colors duration-300 shadow-[0_0_15px_rgba(0,255,255,0.4)] active:scale-95">
+            <button onClick={onNewSession} className="w-full h-16 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-indigo-600 hover:text-white transition-colors duration-300 shadow-[0_0_15px_rgba(0,255,255,0.4)] active:scale-95">
               <span className="material-symbols-outlined">cast</span>
               Crear Nueva Sesión AR
             </button>
@@ -112,7 +112,7 @@ const PanelView: React.FC = () => (
 /* ─────────────────────────────────────────────
    Sub-vista: Información (desde Stitch)
 ───────────────────────────────────────────── */
-const InformacionView: React.FC = () => {
+const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
   const [timeValue, setTimeValue] = useState(5);
 
   return (
@@ -227,7 +227,7 @@ const InformacionView: React.FC = () => {
 
             {/* Acción */}
             <div className="flex justify-end mt-8 pt-4 border-t border-white/10">
-              <button className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center gap-2 hover:bg-cyan-300 transition-colors shadow-[0_0_20px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
+              <button onClick={onNext} className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center gap-2 hover:bg-cyan-300 transition-colors shadow-[0_0_20px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_forward</span>
                 Siguiente
               </button>
@@ -242,7 +242,7 @@ const InformacionView: React.FC = () => {
 /* ─────────────────────────────────────────────
    Sub-vista: Modelo
 ───────────────────────────────────────────── */
-const ModeloView: React.FC = () => {
+const ModeloView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       <header className="mb-10">
@@ -347,7 +347,7 @@ const ModeloView: React.FC = () => {
         <button className="w-full sm:w-auto h-12 px-8 text-gray-400 font-bold text-xs uppercase tracking-widest hover:text-white transition-colors">
           Cancelar
         </button>
-        <button className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] group active:scale-95">
+        <button onClick={onNext} className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] group active:scale-95">
           Guardar Modelo y Continuar
           <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform" style={{ fontSize: '20px' }}>arrow_forward</span>
         </button>
@@ -854,9 +854,9 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         {/* Glow decorativo */}
         <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
-        {activeTab === 'panel'        && <PanelView />}
-        {activeTab === 'informacion'  && <InformacionView />}
-        {activeTab === 'modelo'       && <ModeloView />}
+        {activeTab === 'panel'        && <PanelView onNewSession={() => setActiveTab('informacion')} />}
+        {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} />}
+        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} />}
         {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} />}
         {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} />}
         {activeTab === 'estadisticas' && <EstadisticasView />}
