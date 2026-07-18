@@ -357,6 +357,140 @@ const ModeloView: React.FC = () => {
 };
 
 /* ─────────────────────────────────────────────
+   Sub-vista: Cuestionario
+───────────────────────────────────────────── */
+const CuestionarioView: React.FC = () => {
+  return (
+    <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+      <header className="mb-8">
+        <div className="flex items-center gap-2 text-gray-400 mb-2">
+          <span className="material-symbols-outlined text-sm">medical_services</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Procedures / Evaluation</span>
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Configuración de Cuestionario</h1>
+        <p className="text-gray-400 mt-2 text-lg max-w-2xl">Adecue las preguntas para el examen</p>
+      </header>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
+        <div className="xl:col-span-12 flex flex-col h-full">
+          <section className="rounded-xl p-6 flex-1 flex flex-col relative" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="absolute top-0 left-0 w-1 h-full bg-gray-600 rounded-l-xl"></div>
+            
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-gray-400">quiz</span>
+                Clinical Questions (3)
+              </h2>
+              <div className="text-xs font-bold text-gray-400 bg-gray-900/60 px-3 py-1.5 rounded-lg border border-white/5">Q1 of 3</div>
+            </div>
+
+            {/* Question 1 */}
+            <div className="space-y-6 flex-1">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Question Prompt</label>
+                <textarea 
+                  className="w-full bg-gray-900/60 border border-white/10 rounded-lg p-4 text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none transition-all resize-none h-24" 
+                  defaultValue="Un paciente con insuficiencia mitral presenta disnea de esfuerzo. En el examen ecocardiográfico, ¿cuál es la estructura anatómica primariamente afectada?"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Multiple Choice Options</label>
+                
+                {/* Option A (Correct) */}
+                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
+                  <input defaultChecked className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
+                  <div className="flex-1 flex gap-3 items-center">
+                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">A</span>
+                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Válvula auriculoventricular izquierda" />
+                  </div>
+                  <span className="material-symbols-outlined text-green-400 text-xl opacity-100">check_circle</span>
+                </label>
+
+                {/* Option B */}
+                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
+                  <input className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
+                  <div className="flex-1 flex gap-3 items-center">
+                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">B</span>
+                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Válvula semilunar aórtica" />
+                  </div>
+                  <span className="material-symbols-outlined text-gray-500 text-xl opacity-0 group-hover:opacity-50 transition-opacity">radio_button_unchecked</span>
+                </label>
+
+                {/* Option C */}
+                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
+                  <input className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
+                  <div className="flex-1 flex gap-3 items-center">
+                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">C</span>
+                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Músculo papilar del ventrículo derecho" />
+                  </div>
+                  <span className="material-symbols-outlined text-gray-500 text-xl opacity-0 group-hover:opacity-50 transition-opacity">radio_button_unchecked</span>
+                </label>
+
+                {/* Option D */}
+                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
+                  <input className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
+                  <div className="flex-1 flex gap-3 items-center">
+                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">D</span>
+                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Tabique interventricular" />
+                  </div>
+                  <span className="material-symbols-outlined text-gray-500 text-xl opacity-0 group-hover:opacity-50 transition-opacity">radio_button_unchecked</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Navigation / Add Question */}
+            <div className="flex justify-between items-center mt-8 pt-6 border-t border-white/10">
+              <div className="flex flex-col w-full gap-4">
+                <div className="flex justify-between items-center flex-wrap gap-4">
+                  <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+                    <span className="material-symbols-outlined text-lg group-hover:text-cyan-400 transition-colors">shuffle</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">Activar reordenación aleatoria de la pregunta</span>
+                  </button>
+                  <div className="flex gap-3">
+                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900/60 hover:bg-slate-700/50 text-gray-400 hover:text-white border border-white/10 transition-all">
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Editar</span>
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900/60 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all">
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Eliminar</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                  <button className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors">
+                    <span className="material-symbols-outlined text-lg">add</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">Añadir Pregunta</span>
+                  </button>
+                  <div className="flex gap-2">
+                    <button className="w-10 h-10 rounded-full bg-gray-900/60 flex items-center justify-center text-gray-600 border border-white/5 opacity-50 cursor-not-allowed">
+                      <span className="material-symbols-outlined">chevron_left</span>
+                    </button>
+                    <button className="w-10 h-10 rounded-full bg-gray-900/60 hover:bg-slate-700/50 transition-colors flex items-center justify-center text-white border border-white/10">
+                      <span className="material-symbols-outlined">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="flex justify-end mt-8 pt-6 border-t border-white/10">
+        <button className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>qr_code_2</span>
+          Generar código QR
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
    Placeholder genérico para otras pestañas
 ───────────────────────────────────────────── */
 const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
@@ -485,7 +619,7 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         {activeTab === 'panel'        && <PanelView />}
         {activeTab === 'informacion'  && <InformacionView />}
         {activeTab === 'modelo'       && <ModeloView />}
-        {activeTab === 'cuestionario' && <PlaceholderView icon="quiz" label="Cuestionario de Evaluación" />}
+        {activeTab === 'cuestionario' && <CuestionarioView />}
         {activeTab === 'estadisticas' && <PlaceholderView icon="query_stats" label="Estadísticas de Sesión" />}
       </main>
     </div>
