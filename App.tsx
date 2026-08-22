@@ -7,6 +7,8 @@ import { ScreenRecorder } from './components/ScreenRecorder.tsx';
 import { getQuizQuestion } from './services/geminiService.ts';
 import { ExcalidrawEditor } from './components/ExcalidrawEditor.tsx';
 import { Evaluation } from './components/Evaluation.tsx';
+import { AuthScreen } from './components/AuthScreen.tsx';
+import { GoogleUser, getStoredUser, signOut } from './services/googleAuth.ts';
 import "@excalidraw/excalidraw/index.css";
 
 // Extend JSX for model-viewer
@@ -40,6 +42,11 @@ const normalizeText = (text: string) => {
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.EXPLORE);
   const [selectedPart, setSelectedPart] = useState<AnatomicalPart | null>(null);
+
+  // Auth State
+  const [currentUser, setCurrentUser] = useState<GoogleUser | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showAuth, setShowAuth] = useState(false); // shown after loader
 
   // Quiz State
   const [quizTarget, setQuizTarget] = useState<AnatomicalPart | null>(null);
@@ -79,6 +86,15 @@ const App: React.FC = () => {
     }
   }, [gestureState.mode, showWebcam]);
 
+  // Restore session on mount (page reload resilience)
+  useEffect(() => {
+    const stored = getStoredUser();
+    if (stored) {
+      setCurrentUser(stored);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   // Handle Model Loading Events
   useEffect(() => {
     const viewer = modelViewerRef.current;
@@ -90,10 +106,14 @@ const App: React.FC = () => {
     };
 
     const onLoad = () => {
-      // Small delay for smooth transition
+      // Small delay for smooth transition, then show auth screen (unless already authenticated)
       setTimeout(() => {
         setIsLoading(false);
         setIsTransparencyLoading(false);
+        const stored = getStoredUser();
+        if (!stored) {
+          setShowAuth(true);
+        }
       }, 500);
     };
 
@@ -105,6 +125,25 @@ const App: React.FC = () => {
       viewer.removeEventListener('load', onLoad);
     };
   }, []);
+
+  const handleAuthenticated = (user: GoogleUser) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    setShowAuth(false);
+  };
+
+  const handleGuest = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(true); // guest access allowed
+    setShowAuth(false);
+  };
+
+  const handleLogout = () => {
+    signOut(currentUser?.email);
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setShowAuth(true);
+  };
 
   // --- QUIZ LOGIC ---
 
@@ -434,6 +473,34 @@ const App: React.FC = () => {
 
 
 
+          {/* User Avatar + Logout (Hidden in DRAW) */}
+          {mode !== AppMode.DRAW && (
+            <div className="flex items-center gap-2">
+              {currentUser ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+                    <img
+                      src={currentUser.picture}
+                      alt={currentUser.name}
+                      className="w-6 h-6 rounded-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="text-xs font-medium text-gray-300 max-w-[100px] truncate">{currentUser.given_name}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-800/80 border border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-500/50 transition-all text-xs"
+                    title="Cerrar sesión"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  </button>
+                </>
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-2 py-1 rounded-full bg-white/5 border border-white/10">Invitado</span>
+              )}
+            </div>
+          )}
+
           {/* Manual Voice Toggle & Hotspot List Dropdown (Hidden in DRAW) */}
           <div className={`relative transition-opacity ${mode === AppMode.DRAW ? 'hidden' : 'opacity-100'}`}>
             <button
@@ -637,6 +704,14 @@ const App: React.FC = () => {
       )}
 
       {mode === AppMode.EVALUATION && <Evaluation onExit={() => setMode(AppMode.EXPLORE)} />}
+
+      {/* Auth Screen — shown after loader when not authenticated */}
+      {showAuth && !isAuthenticated && (
+        <AuthScreen
+          onAuthenticated={handleAuthenticated}
+          onGuest={handleGuest}
+        />
+      )}
 
     </div >
   );
