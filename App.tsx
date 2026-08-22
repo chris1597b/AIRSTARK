@@ -67,27 +67,16 @@ const App: React.FC = () => {
   // Custom Hook handles MediaPipe logic
   const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef);
 
-  // Update camera based on hand gestures if active
+  // Sync React camera-orbit state only when gesture MODE changes (not every frame).
+  // The actual per-frame orbit updates are now written directly to the DOM inside
+  // useHandControl via requestAnimationFrame, bypassing React state for zero-lag rendering.
   useEffect(() => {
     if (!showWebcam) return;
-    if (gestureState.mode !== 'IDLE' && gestureState.mode !== 'VOICE' && gestureState.mode !== 'LOCKED') {
+    if (gestureState.mode === 'IDLE' || gestureState.mode === 'VOICE' || gestureState.mode === 'LOCKED') {
+      // When gesture stops, sync React state to the last value the hook wrote
+      // so subsequent camera-controls clicks are consistent.
       setCameraOrbit(orbitOutput.current);
     }
-  }, [gestureState, orbitOutput, showWebcam]);
-
-  // Loop to sync ref to state for smoother animation
-  useEffect(() => {
-    let animId: number;
-    const updateLoop = () => {
-      if (!showWebcam) {
-        // Do nothing, rotation disabled
-      } else if (gestureState.mode !== 'IDLE' && gestureState.mode !== 'VOICE' && gestureState.mode !== 'LOCKED') {
-        setCameraOrbit(orbitOutput.current);
-      }
-      animId = requestAnimationFrame(updateLoop);
-    };
-    animId = requestAnimationFrame(updateLoop);
-    return () => cancelAnimationFrame(animId);
   }, [gestureState.mode, showWebcam]);
 
   // Handle Model Loading Events
