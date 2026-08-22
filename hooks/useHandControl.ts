@@ -16,7 +16,11 @@ interface CameraState {
   radius: number;
 }
 
-export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canvasRef: React.RefObject<HTMLCanvasElement>) => {
+export const useHandControl = (
+  videoRef: React.RefObject<HTMLVideoElement>,
+  canvasRef: React.RefObject<HTMLCanvasElement>,
+  active: boolean
+) => {
   const [gestureState, setGestureState] = useState<{ mode: string, active: boolean }>({ mode: 'IDLE', active: false });
   
   // Physics State (Refs to avoid re-renders on every frame)
@@ -29,6 +33,12 @@ export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canv
   const gestureModeRef = useRef<string>('IDLE');
 
   useEffect(() => {
+    if (!active) {
+      setGestureState({ mode: 'IDLE', active: false });
+      gestureModeRef.current = 'IDLE';
+      return;
+    }
+
     let camera: any;
     let hands: any;
     let rafId: number;
@@ -225,7 +235,7 @@ export const useHandControl = (videoRef: React.RefObject<HTMLVideoElement>, canv
         if (hands) hands.close();
         cancelAnimationFrame(rafId);
     };
-  }, [videoRef, canvasRef]);
+  }, [videoRef, canvasRef, active]);
 
   return { gestureState, orbitOutput };
 };

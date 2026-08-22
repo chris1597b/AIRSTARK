@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { renderGoogleButton, signInWithGoogle, GoogleUser } from '../services/googleAuth';
+import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle, GoogleUser } from '../services/googleAuth';
 
 interface AuthScreenProps {
   onAuthenticated: (user: GoogleUser) => void;
@@ -19,23 +19,45 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
     return () => clearTimeout(t);
   }, []);
 
-  // Render the official Google button when the container is ready
+  // Set up the callbacks and render the button
   useEffect(() => {
-    if (!googleBtnRef.current || !hasClientId) return;
-    let cancelled = false;
+    if (!hasClientId) return;
 
-    renderGoogleButton(googleBtnRef.current)
-      .then((user) => {
-        if (!cancelled) onAuthenticated(user);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.warn('Google button auth error:', err);
+    let isMounted = true;
+
+    const setupAuth = async () => {
+      try {
+        await initializeGoogleAuth(
+          (user) => {
+            if (isMounted) onAuthenticated(user);
+          },
+          (err) => {
+            if (isMounted) {
+              console.error('Google Auth Error callback:', err);
+              setError(err.message);
+              setIsLoading(false);
+            }
+          }
+        );
+
+        if (googleBtnRef.current && isMounted) {
+          // Clear container before rendering to prevent double buttons on React strict-mode/re-renders
+          googleBtnRef.current.innerHTML = '';
+          await renderGoogleButton(googleBtnRef.current);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.error('Failed to setup Google Auth:', err);
           setError(err.message);
         }
-      });
+      }
+    };
 
-    return () => { cancelled = true; };
+    setupAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [hasClientId, onAuthenticated]);
 
   // Fallback: One-Tap prompt button
@@ -43,8 +65,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
     setIsLoading(true);
     setError(null);
     try {
-      const user = await signInWithGoogle();
-      onAuthenticated(user);
+      await signInWithGoogle(
+        (user) => onAuthenticated(user),
+        (err) => {
+          setError(err.message ?? 'Error al iniciar sesión');
+          setIsLoading(false);
+        }
+      );
     } catch (err: any) {
       setError(err.message ?? 'Error al iniciar sesión');
       setIsLoading(false);

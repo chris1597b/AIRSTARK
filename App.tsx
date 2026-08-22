@@ -46,7 +46,7 @@ const App: React.FC = () => {
   // Auth State
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [showAuth, setShowAuth] = useState(false); // shown after loader
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Quiz State
   const [quizTarget, setQuizTarget] = useState<AnatomicalPart | null>(null);
@@ -61,6 +61,8 @@ const App: React.FC = () => {
   const [isTransparent, setIsTransparent] = useState(false);
   const [modelSrc, setModelSrc] = useState<string>('/corazonfilial.glb');
   const [lockedOrbit, setLockedOrbit] = useState<{ theta: number, phi: number } | null>(null);
+  
+  // Loader runs when model starts downloading (after auth)
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isTransparencyLoading, setIsTransparencyLoading] = useState(false);
@@ -70,21 +72,20 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-
-  // Custom Hook handles MediaPipe logic
-  const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef);
+  // Custom Hook handles MediaPipe logic (only active if user is authenticated and webcam is shown)
+  const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef, isAuthenticated && showWebcam);
 
   // Sync React camera-orbit state only when gesture MODE changes (not every frame).
   // The actual per-frame orbit updates are now written directly to the DOM inside
   // useHandControl via requestAnimationFrame, bypassing React state for zero-lag rendering.
   useEffect(() => {
-    if (!showWebcam) return;
+    if (!showWebcam || !isAuthenticated) return;
     if (gestureState.mode === 'IDLE' || gestureState.mode === 'VOICE' || gestureState.mode === 'LOCKED') {
       // When gesture stops, sync React state to the last value the hook wrote
       // so subsequent camera-controls clicks are consistent.
       setCameraOrbit(orbitOutput.current);
     }
-  }, [gestureState.mode, showWebcam]);
+  }, [gestureState.mode, showWebcam, isAuthenticated]);
 
   // Restore session on mount (page reload resilience)
   useEffect(() => {
@@ -93,9 +94,11 @@ const App: React.FC = () => {
       setCurrentUser(stored);
       setIsAuthenticated(true);
     }
+    setIsAuthChecking(false);
   }, []);
 
   // Handle Model Loading Events
+  // Runs whenever isAuthenticated changes (since the viewer is rendered conditionally on isAuthenticated)
   useEffect(() => {
     const viewer = modelViewerRef.current;
     if (!viewer) return;
@@ -106,14 +109,10 @@ const App: React.FC = () => {
     };
 
     const onLoad = () => {
-      // Small delay for smooth transition, then show auth screen (unless already authenticated)
+      // Small delay for smooth transition after model is fully loaded
       setTimeout(() => {
         setIsLoading(false);
         setIsTransparencyLoading(false);
-        const stored = getStoredUser();
-        if (!stored) {
-          setShowAuth(true);
-        }
       }, 500);
     };
 
@@ -124,25 +123,28 @@ const App: React.FC = () => {
       viewer.removeEventListener('progress', onProgress);
       viewer.removeEventListener('load', onLoad);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const handleAuthenticated = (user: GoogleUser) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
-    setShowAuth(false);
+    // Restart model loading state
+    setIsLoading(true);
+    setLoadingProgress(0);
   };
 
   const handleGuest = () => {
     setCurrentUser(null);
     setIsAuthenticated(true); // guest access allowed
-    setShowAuth(false);
+    // Restart model loading state
+    setIsLoading(true);
+    setLoadingProgress(0);
   };
 
   const handleLogout = () => {
     signOut(currentUser?.email);
     setCurrentUser(null);
     setIsAuthenticated(false);
-    setShowAuth(true);
   };
 
   // --- QUIZ LOGIC ---
@@ -331,6 +333,19 @@ const App: React.FC = () => {
 
   // Determine if voice is active (either via Hand Gesture OR Manual Toggle)
   const isVoiceActive = gestureState.mode === 'VOICE' || isVoiceManual;
+
+  if (isAuthChecking) {
+    return <div className="w-screen h-screen bg-gray-900" />;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        onAuthenticated={handleAuthenticated}
+        onGuest={handleGuest}
+      />
+    );
+  }
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans">
@@ -704,14 +719,6 @@ const App: React.FC = () => {
       )}
 
       {mode === AppMode.EVALUATION && <Evaluation onExit={() => setMode(AppMode.EXPLORE)} />}
-
-      {/* Auth Screen — shown after loader when not authenticated */}
-      {showAuth && !isAuthenticated && (
-        <AuthScreen
-          onAuthenticated={handleAuthenticated}
-          onGuest={handleGuest}
-        />
-      )}
 
     </div >
   );

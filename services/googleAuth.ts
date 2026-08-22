@@ -50,85 +50,86 @@ function waitForGIS(): Promise<void> {
   });
 }
 
+let isInitialized = false;
+let globalCallback: ((user: GoogleUser) => void) | null = null;
+let globalErrorCallback: ((err: Error) => void) | null = null;
+
 /**
- * Trigger the Google One-Tap / popup sign-in flow.
- * Returns the decoded GoogleUser on success.
+ * Initialize Google Auth SDK globally with stable callbacks.
+ * Can be called multiple times safely when component re-renders.
  */
-export async function signInWithGoogle(): Promise<GoogleUser> {
+export async function initializeGoogleAuth(
+  onSuccess: (user: GoogleUser) => void,
+  onFailure: (err: Error) => void
+): Promise<void> {
+  globalCallback = onSuccess;
+  globalErrorCallback = onFailure;
+
+  if (isInitialized) {
+    return;
+  }
+
   if (!CLIENT_ID) {
     throw new Error('VITE_GOOGLE_CLIENT_ID no configurado en .env.local');
   }
 
   await waitForGIS();
 
-  return new Promise((resolve, reject) => {
-    window.google.accounts.id.initialize({
-      client_id: CLIENT_ID,
-      callback: (response: { credential: string; error?: string }) => {
-        if (response.error) {
-          reject(new Error(response.error));
-          return;
-        }
-        try {
-          const user = decodeJwt(response.credential);
-          // Persist lightweight session (no sensitive data stored)
-          sessionStorage.setItem('airstark_user', JSON.stringify(user));
-          resolve(user);
-        } catch (e) {
-          reject(e);
-        }
-      },
-      use_fedcm_for_prompt: true,
-    });
-
-    // Use the popup flow (works even without FedCM support)
-    window.google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // Fallback: render a proper button-based popup
-        window.google.accounts.oauth2
-          ? undefined
-          : reject(new Error('Google Sign-In no disponible en este entorno'));
+  window.google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: (response: { credential: string; error?: string }) => {
+      if (response.error) {
+        if (globalErrorCallback) globalErrorCallback(new Error(response.error));
+        return;
       }
-    });
+      try {
+        const user = decodeJwt(response.credential);
+        sessionStorage.setItem('airstark_user', JSON.stringify(user));
+        if (globalCallback) globalCallback(user);
+      } catch (e: any) {
+        if (globalErrorCallback) globalErrorCallback(e);
+      }
+    },
+    use_fedcm_for_prompt: true,
+  });
+
+  isInitialized = true;
+}
+
+/**
+ * Trigger the Google One-Tap / popup sign-in flow.
+ */
+export async function signInWithGoogle(
+  onSuccess: (user: GoogleUser) => void,
+  onFailure: (err: Error) => void
+): Promise<void> {
+  await initializeGoogleAuth(onSuccess, onFailure);
+
+  window.google.accounts.id.prompt((notification: any) => {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      if (!window.google.accounts.oauth2) {
+        onFailure(new Error('Google Sign-In no disponible en este entorno'));
+      }
+    }
   });
 }
 
 /** Render the official Google Sign-In button into a container element */
-export async function renderGoogleButton(container: HTMLElement): Promise<GoogleUser> {
+export async function renderGoogleButton(container: HTMLElement): Promise<void> {
   if (!CLIENT_ID) {
     throw new Error('VITE_GOOGLE_CLIENT_ID no configurado en .env.local');
   }
 
   await waitForGIS();
 
-  return new Promise((resolve, reject) => {
-    window.google.accounts.id.initialize({
-      client_id: CLIENT_ID,
-      callback: (response: { credential: string; error?: string }) => {
-        if (response.error) {
-          reject(new Error(response.error));
-          return;
-        }
-        try {
-          const user = decodeJwt(response.credential);
-          sessionStorage.setItem('airstark_user', JSON.stringify(user));
-          resolve(user);
-        } catch (e) {
-          reject(e);
-        }
-      },
-      use_fedcm_for_prompt: true,
-    });
-
-    window.google.accounts.id.renderButton(container, {
-      type: 'standard',
-      theme: 'filled_black',
-      size: 'large',
-      text: 'continue_with',
-      shape: 'pill',
-      logo_alignment: 'left',
-      width: 320,
-    });
+  window.google.accounts.id.renderButton(container, {
+    type: 'standard',
+    theme: 'filled_black',
+    size: 'large',
+    text: 'continue_with',
+    shape: 'pill',
+    logo_alignment: 'left',
+    width: 320,
   });
 }
 
