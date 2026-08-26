@@ -6,6 +6,22 @@ interface EvaluationProps {
 
 type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | 'estadisticas';
 
+export interface Question {
+  id: string;
+  prompt: string;
+  options: { id: string; text: string; isCorrect: boolean }[];
+}
+
+export interface SessionConfig {
+  nombre: string;
+  descripcion: string;
+  estado: 'ACTIVA' | 'DESACTIVA';
+  fechaActivacion: string;
+  duracionMinutos: number;
+  modeloSeleccionado: string;
+  preguntas: Question[];
+}
+
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
 ───────────────────────────────────────────── */
@@ -112,9 +128,7 @@ const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => 
 /* ─────────────────────────────────────────────
    Sub-vista: Información (desde Stitch)
 ───────────────────────────────────────────── */
-const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
-  const [timeValue, setTimeValue] = useState(5);
-
+const InformacionView: React.FC<{ onNext: () => void; config: SessionConfig; setConfig: React.Dispatch<React.SetStateAction<SessionConfig>> }> = ({ onNext, config, setConfig }) => {
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       {/* Header */}
@@ -131,12 +145,20 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
         {/* Columna Izquierda */}
         <div className="xl:col-span-4 space-y-6">
 
-          {/* Fecha de Creación */}
+          {/* Fecha de Creación / Programación */}
           <section className="relative overflow-hidden rounded-xl p-6" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="absolute top-0 left-0 w-1 h-full bg-cyan-400 rounded-l-xl" />
             <div className="mb-2">
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Fecha de Creación</div>
-              <div className="text-base font-bold text-cyan-400">Marzo 14, 2024</div>
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block" htmlFor="fecha-activacion">
+                Fecha de Activación
+              </label>
+              <input 
+                id="fecha-activacion"
+                type="date"
+                value={config.fechaActivacion}
+                onChange={(e) => setConfig({ ...config, fechaActivacion: e.target.value })}
+                className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200"
+              />
             </div>
           </section>
 
@@ -149,9 +171,18 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
             </h2>
             <div className="mb-4">
               <div className="flex justify-between items-end mb-3">
-                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Tiempo Límite</span>
+                <label className="text-gray-400 text-xs font-bold uppercase tracking-wider" htmlFor="duracion-minutos">Tiempo Límite (Minutos)</label>
                 <div className="bg-gray-800/80 px-3 py-1 rounded border border-white/10 flex items-center gap-1">
-                  <span className="text-2xl font-bold text-cyan-400">{timeValue}</span>
+                  <input 
+                    id="duracion-minutos"
+                    type="number"
+                    min={3}
+                    max={180}
+                    value={config.duracionMinutos}
+                    onChange={e => setConfig({ ...config, duracionMinutos: Number(e.target.value) })}
+                    className="w-16 bg-transparent text-2xl font-bold text-cyan-400 text-right focus:outline-none appearance-none"
+                    style={{ MozAppearance: 'textfield' }}
+                  />
                   <span className="text-xs font-bold text-gray-400 ml-1">MIN</span>
                 </div>
               </div>
@@ -160,17 +191,16 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
                   className="w-full h-1 rounded-full appearance-none cursor-pointer"
                   type="range"
                   min={3}
-                  max={30}
-                  value={timeValue}
-                  onChange={e => setTimeValue(Number(e.target.value))}
+                  max={180}
+                  value={config.duracionMinutos}
+                  onChange={e => setConfig({ ...config, duracionMinutos: Number(e.target.value) })}
                   style={{
-                    background: `linear-gradient(to right, #22d3ee ${((timeValue - 3) / 27) * 100}%, #374151 ${((timeValue - 3) / 27) * 100}%)`
+                    background: `linear-gradient(to right, #22d3ee ${((config.duracionMinutos - 3) / 177) * 100}%, #374151 ${((config.duracionMinutos - 3) / 177) * 100}%)`
                   }}
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-2">
                   <span>3 min</span>
-                  <span>15 min</span>
-                  <span>30 min</span>
+                  <span>180 min</span>
                 </div>
               </div>
             </div>
@@ -179,10 +209,31 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
           {/* Estado de sesión */}
           <section className="relative overflow-hidden rounded-xl p-6" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="absolute top-0 left-0 w-1 h-full bg-cyan-400 rounded-l-xl" />
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Estado de la Sesión</div>
-            <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse inline-block" />
-              ACTIVA
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Estado de la Sesión</label>
+            <div className="flex gap-4">
+              <label className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer border transition-all ${config.estado === 'ACTIVA' ? 'bg-cyan-400/20 border-cyan-400 text-cyan-400' : 'bg-gray-900/60 border-white/10 text-gray-400 hover:border-gray-400'}`}>
+                <input 
+                  type="radio" 
+                  name="estado" 
+                  value="ACTIVA" 
+                  checked={config.estado === 'ACTIVA'} 
+                  onChange={() => setConfig({ ...config, estado: 'ACTIVA' })} 
+                  className="hidden" 
+                />
+                {config.estado === 'ACTIVA' && <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />}
+                ACTIVA
+              </label>
+              <label className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer border transition-all ${config.estado === 'DESACTIVA' ? 'bg-gray-700 border-gray-400 text-white' : 'bg-gray-900/60 border-white/10 text-gray-400 hover:border-gray-400'}`}>
+                <input 
+                  type="radio" 
+                  name="estado" 
+                  value="DESACTIVA" 
+                  checked={config.estado === 'DESACTIVA'} 
+                  onChange={() => setConfig({ ...config, estado: 'DESACTIVA' })} 
+                  className="hidden" 
+                />
+                DESACTIVA
+              </label>
             </div>
           </section>
         </div>
@@ -202,6 +253,8 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
                   <input
                     id="session-name"
                     type="text"
+                    value={config.nombre}
+                    onChange={e => setConfig({ ...config, nombre: e.target.value })}
                     placeholder="Ej. Evaluación de Válvula Mitral"
                     className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200"
                   />
@@ -218,6 +271,8 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
                   <textarea
                     id="session-desc"
                     rows={15}
+                    value={config.descripcion}
+                    onChange={e => setConfig({ ...config, descripcion: e.target.value })}
                     placeholder="Describa los objetivos y el contexto de esta evaluación..."
                     className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200 resize-none"
                   />
@@ -242,7 +297,14 @@ const InformacionView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
 /* ─────────────────────────────────────────────
    Sub-vista: Modelo
 ───────────────────────────────────────────── */
-const ModeloView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
+const ModeloView: React.FC<{ onNext: () => void; config: SessionConfig; setConfig: React.Dispatch<React.SetStateAction<SessionConfig>> }> = ({ onNext, config, setConfig }) => {
+  const models = [
+    { id: 'heart', icon: 'cardiology', label: 'Heart' },
+    { id: 'brain', icon: 'neurology', label: 'Brain' },
+    { id: 'lungs', icon: 'pulmonology', label: 'Lungs' },
+    { id: 'kidneys', icon: 'nephrology', label: 'Kidneys' }
+  ];
+
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       <header className="mb-10">
@@ -250,93 +312,33 @@ const ModeloView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
           <span className="material-symbols-outlined text-sm">medical_services</span>
           <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Procedures / Evaluation</span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Selección o Carga del Modelo</h1>
-        <p className="text-gray-400 mt-2 text-lg max-w-2xl">Configure los parámetros del modelo anatómico para la visualización AR.</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Selección del Modelo</h1>
+        <p className="text-gray-400 mt-2 text-lg max-w-2xl">Seleccione el modelo anatómico para la visualización AR.</p>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
         {/* Left Column: Model Selection */}
-        <div className="xl:col-span-4 flex flex-col gap-6">
-          <section className="rounded-xl p-6 border-l-4 border-l-cyan-400" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="xl:col-span-12 flex flex-col gap-6">
+          <section className="rounded-xl p-6 border-l-4 border-l-cyan-400 flex-1" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-cyan-400">biotech</span>
               Modelos Disponibles
             </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Model Card Active */}
-              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-cyan-400/10 border border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/20 transition-all group">
-                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>cardiology</span>
-                <span className="text-xs font-bold uppercase tracking-tight">Heart</span>
-              </button>
-              {/* Model Card */}
-              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-slate-800/50 border border-white/10 text-gray-400 hover:border-gray-400 hover:text-white transition-all group">
-                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform">neurology</span>
-                <span className="text-xs font-bold uppercase tracking-tight">Brain</span>
-              </button>
-              {/* Model Card */}
-              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-slate-800/50 border border-white/10 text-gray-400 hover:border-gray-400 hover:text-white transition-all group">
-                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform">pulmonology</span>
-                <span className="text-xs font-bold uppercase tracking-tight">Lungs</span>
-              </button>
-              {/* Model Card */}
-              <button className="flex flex-col items-center justify-center p-5 rounded-lg bg-slate-800/50 border border-white/10 text-gray-400 hover:border-gray-400 hover:text-white transition-all group">
-                <span className="material-symbols-outlined text-3xl mb-3 group-hover:scale-110 transition-transform">nephrology</span>
-                <span className="text-xs font-bold uppercase tracking-tight">Kidneys</span>
-              </button>
-            </div>
-          </section>
-        </div>
-
-        {/* Right Column: Details & Upload */}
-        <div className="xl:col-span-8 flex flex-col">
-          <section className="rounded-xl p-8 border-l-4 border-l-gray-600 flex-1" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <h2 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
-              <span className="material-symbols-outlined text-cyan-400">view_in_ar</span>
-              Detalles del Modelo
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider" htmlFor="model-name">Nombre del Modelo</label>
-                  <input className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all" id="model-name" placeholder="e.g. Anomalía Ventricular Izquierda" type="text" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider" htmlFor="description">Descripción Clínica</label>
-                  <textarea className="w-full h-32 bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all resize-none" id="description" placeholder="Describa el contexto clínico y detalles específicos del modelo..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Archivo Geometría (GLB)</label>
-                  <div className="border-2 border-dashed border-white/10 rounded-lg p-8 flex flex-col items-center justify-center gap-3 hover:border-cyan-400/50 hover:bg-cyan-400/5 cursor-pointer transition-all group">
-                    <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center text-gray-400 group-hover:text-cyan-400 transition-colors">
-                      <span className="material-symbols-outlined text-2xl">cloud_upload</span>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-white">Cargar archivo .glb</p>
-                      <p className="text-[10px] text-gray-400 uppercase mt-1">Máximo: 50MB</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Miniatura del Modelo 3D</label>
-                <div className="aspect-square w-full bg-gray-900/60 border border-white/10 rounded-xl flex flex-col items-center justify-center relative overflow-hidden group">
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-gray-400 group-hover:text-cyan-400 transition-colors z-10">
-                    <div className="w-20 h-20 rounded-2xl bg-slate-700/50 flex items-center justify-center shadow-lg group-hover:shadow-cyan-400/10 transition-all">
-                      <span className="material-symbols-outlined text-4xl">add_a_photo</span>
-                    </div>
-                    <p className="text-xs font-bold uppercase tracking-widest">Añadir Miniatura</p>
-                  </div>
-                  <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-                  <div className="absolute inset-0 bg-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"></div>
-                </div>
-                <div className="flex items-start gap-3 p-4 bg-slate-700/20 rounded-lg border border-white/5">
-                  <span className="material-symbols-outlined text-cyan-400 text-lg">info</span>
-                  <p className="text-[11px] text-gray-400 leading-relaxed italic">
-                    Esta imagen se utilizará como vista previa en el visor de Realidad Aumentada (AR) para los estudiantes.
-                  </p>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {models.map(m => (
+                <button 
+                  key={m.id}
+                  onClick={() => setConfig({ ...config, modeloSeleccionado: m.id })}
+                  className={`flex flex-col items-center justify-center p-8 rounded-lg transition-all group ${
+                    config.modeloSeleccionado === m.id 
+                    ? 'bg-cyan-400/20 border-2 border-cyan-400 text-cyan-400 shadow-[0_0_15px_rgba(0,255,255,0.2)]' 
+                    : 'bg-slate-800/50 border-2 border-transparent border-white/10 text-gray-400 hover:border-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-5xl mb-4 group-hover:scale-110 transition-transform" style={{ fontVariationSettings: config.modeloSeleccionado === m.id ? "'FILL' 1" : "'FILL' 0" }}>{m.icon}</span>
+                  <span className="text-sm font-bold uppercase tracking-tight">{m.label}</span>
+                </button>
+              ))}
             </div>
           </section>
         </div>
@@ -348,7 +350,7 @@ const ModeloView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
           Cancelar
         </button>
         <button onClick={onNext} className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] group active:scale-95">
-          Guardar Modelo y Continuar
+          Continuar
           <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform" style={{ fontSize: '20px' }}>arrow_forward</span>
         </button>
       </div>
@@ -359,7 +361,55 @@ const ModeloView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
 /* ─────────────────────────────────────────────
    Sub-vista: Cuestionario
 ───────────────────────────────────────────── */
-const CuestionarioView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
+const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; setConfig: React.Dispatch<React.SetStateAction<SessionConfig>> }> = ({ onNext, config, setConfig }) => {
+  const [currentQIndex, setCurrentQIndex] = useState(0);
+
+  const currentQ = config.preguntas[currentQIndex];
+
+  const updateCurrentQuestion = (updates: Partial<Question>) => {
+    const newPreguntas = [...config.preguntas];
+    newPreguntas[currentQIndex] = { ...newPreguntas[currentQIndex], ...updates };
+    setConfig({ ...config, preguntas: newPreguntas });
+  };
+
+  const updateOption = (optId: string, text: string) => {
+    const newOptions = currentQ.options.map(o => o.id === optId ? { ...o, text } : o);
+    updateCurrentQuestion({ options: newOptions });
+  };
+
+  const setCorrectOption = (optId: string) => {
+    const newOptions = currentQ.options.map(o => ({ ...o, isCorrect: o.id === optId }));
+    updateCurrentQuestion({ options: newOptions });
+  };
+
+  const handleAddQuestion = () => {
+    const newQ: Question = {
+      id: Date.now().toString(),
+      prompt: '',
+      options: [
+        { id: 'A', text: '', isCorrect: true },
+        { id: 'B', text: '', isCorrect: false },
+        { id: 'C', text: '', isCorrect: false },
+        { id: 'D', text: '', isCorrect: false }
+      ]
+    };
+    setConfig({ ...config, preguntas: [...config.preguntas, newQ] });
+    setCurrentQIndex(config.preguntas.length);
+  };
+
+  const handleDeleteQuestion = () => {
+    if (config.preguntas.length <= 1) return; // Prevent deleting last question
+    const newPreguntas = config.preguntas.filter((_, i) => i !== currentQIndex);
+    setConfig({ ...config, preguntas: newPreguntas });
+    setCurrentQIndex(Math.max(0, currentQIndex - 1));
+  };
+
+  const handleSaveConfig = async () => {
+    // Aquí es donde se llamaría a la API posteriormente.
+    console.log("Guardando configuración...", config);
+    alert("Configuración guardada en estado global (Próximamente API)");
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       <header className="mb-8">
@@ -373,109 +423,109 @@ const CuestionarioView: React.FC<{ onNext: () => void }> = ({ onNext }) => {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
         <div className="xl:col-span-12 flex flex-col h-full">
-          <section className="rounded-xl p-6 flex-1 flex flex-col relative" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="absolute top-0 left-0 w-1 h-full bg-gray-600 rounded-l-xl"></div>
-            
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-gray-400">quiz</span>
-                Clinical Questions (3)
-              </h2>
-              <div className="text-xs font-bold text-gray-400 bg-gray-900/60 px-3 py-1.5 rounded-lg border border-white/5">Q1 of 3</div>
-            </div>
-
-            {/* Question 1 */}
-            <div className="space-y-6 flex-1">
-              <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Question Prompt</label>
-                <textarea 
-                  className="w-full bg-gray-900/60 border border-white/10 rounded-lg p-4 text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none transition-all resize-none h-24" 
-                  defaultValue="Un paciente con insuficiencia mitral presenta disnea de esfuerzo. En el examen ecocardiográfico, ¿cuál es la estructura anatómica primariamente afectada?"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Multiple Choice Options</label>
-                
-                {/* Option A (Correct) */}
-                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
-                  <input defaultChecked className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
-                  <div className="flex-1 flex gap-3 items-center">
-                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">A</span>
-                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Válvula auriculoventricular izquierda" />
-                  </div>
-                  <span className="material-symbols-outlined text-green-400 text-xl opacity-100">check_circle</span>
-                </label>
-
-                {/* Option B */}
-                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
-                  <input className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
-                  <div className="flex-1 flex gap-3 items-center">
-                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">B</span>
-                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Válvula semilunar aórtica" />
-                  </div>
-                  <span className="material-symbols-outlined text-gray-500 text-xl opacity-0 group-hover:opacity-50 transition-opacity">radio_button_unchecked</span>
-                </label>
-
-                {/* Option C */}
-                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
-                  <input className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
-                  <div className="flex-1 flex gap-3 items-center">
-                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">C</span>
-                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Músculo papilar del ventrículo derecho" />
-                  </div>
-                  <span className="material-symbols-outlined text-gray-500 text-xl opacity-0 group-hover:opacity-50 transition-opacity">radio_button_unchecked</span>
-                </label>
-
-                {/* Option D */}
-                <label className="flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-all group">
-                  <input className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" name="q1" type="radio" />
-                  <div className="flex-1 flex gap-3 items-center">
-                    <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">D</span>
-                    <input className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0" type="text" defaultValue="Tabique interventricular" />
-                  </div>
-                  <span className="material-symbols-outlined text-gray-500 text-xl opacity-0 group-hover:opacity-50 transition-opacity">radio_button_unchecked</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Navigation / Add Question */}
-            <div className="flex justify-between items-center mt-8 pt-6 border-t border-white/10">
-              <div className="flex flex-col w-full gap-4">
-                <div className="flex justify-between items-center flex-wrap gap-4">
-                  <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
-                    <span className="material-symbols-outlined text-lg group-hover:text-cyan-400 transition-colors">shuffle</span>
-                    <span className="text-xs font-bold uppercase tracking-wider">Activar reordenación aleatoria de la pregunta</span>
-                  </button>
-                  <div className="flex gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900/60 hover:bg-slate-700/50 text-gray-400 hover:text-white border border-white/10 transition-all">
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                      <span className="text-xs font-bold uppercase tracking-wider">Editar</span>
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900/60 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all">
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                      <span className="text-xs font-bold uppercase tracking-wider">Eliminar</span>
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                  <button className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors">
-                    <span className="material-symbols-outlined text-lg">add</span>
-                    <span className="text-xs font-bold uppercase tracking-wider">Añadir Pregunta</span>
-                  </button>
-                  <div className="flex gap-2">
-                    <button className="w-10 h-10 rounded-full bg-gray-900/60 flex items-center justify-center text-gray-600 border border-white/5 opacity-50 cursor-not-allowed">
-                      <span className="material-symbols-outlined">chevron_left</span>
-                    </button>
-                    <button className="w-10 h-10 rounded-full bg-gray-900/60 hover:bg-slate-700/50 transition-colors flex items-center justify-center text-white border border-white/10">
-                      <span className="material-symbols-outlined">chevron_right</span>
-                    </button>
-                  </div>
+          {currentQ ? (
+            <section className="rounded-xl p-6 flex-1 flex flex-col relative" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div className="absolute top-0 left-0 w-1 h-full bg-gray-600 rounded-l-xl"></div>
+              
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="material-symbols-outlined text-gray-400">quiz</span>
+                  Clinical Questions ({config.preguntas.length})
+                </h2>
+                <div className="text-xs font-bold text-gray-400 bg-gray-900/60 px-3 py-1.5 rounded-lg border border-white/5">
+                  Q{currentQIndex + 1} of {config.preguntas.length}
                 </div>
               </div>
-            </div>
-          </section>
+
+              {/* Question Editor */}
+              <div className="space-y-6 flex-1">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Question Prompt</label>
+                  <textarea 
+                    value={currentQ.prompt}
+                    onChange={(e) => updateCurrentQuestion({ prompt: e.target.value })}
+                    placeholder="Escriba la pregunta aquí..."
+                    className="w-full bg-gray-900/60 border border-white/10 rounded-lg p-4 text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none transition-all resize-none h-24" 
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Multiple Choice Options</label>
+                  
+                  {currentQ.options.map(opt => (
+                    <label key={opt.id} className={`flex items-center gap-4 p-4 rounded-lg bg-gray-900/60 border cursor-pointer transition-all group ${opt.isCorrect ? 'border-cyan-400/50 shadow-[0_0_10px_rgba(0,255,255,0.1)]' : 'border-white/10 hover:border-cyan-400/30'}`}>
+                      <input 
+                        checked={opt.isCorrect} 
+                        onChange={() => setCorrectOption(opt.id)}
+                        className="w-5 h-5 text-cyan-400 bg-slate-800 border-white/20 focus:ring-cyan-400 focus:ring-offset-gray-900" 
+                        name={`q${currentQ.id}`} 
+                        type="radio" 
+                      />
+                      <div className="flex-1 flex gap-3 items-center">
+                        <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-700 text-xs font-bold text-gray-400">{opt.id}</span>
+                        <input 
+                          value={opt.text}
+                          onChange={(e) => updateOption(opt.id, e.target.value)}
+                          placeholder={`Opción ${opt.id}`}
+                          className="bg-transparent border-none p-0 flex-1 text-white focus:ring-0 focus:outline-none" 
+                          type="text" 
+                        />
+                      </div>
+                      <span className={`material-symbols-outlined text-xl transition-opacity ${opt.isCorrect ? 'text-green-400 opacity-100' : 'text-gray-500 opacity-0 group-hover:opacity-50'}`}>
+                        {opt.isCorrect ? 'check_circle' : 'radio_button_unchecked'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Navigation / Actions */}
+              <div className="flex justify-between items-center mt-8 pt-6 border-t border-white/10">
+                <div className="flex flex-col w-full gap-4">
+                  <div className="flex justify-between items-center flex-wrap gap-4">
+                    <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+                      <span className="material-symbols-outlined text-lg group-hover:text-cyan-400 transition-colors">shuffle</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Activar reordenación aleatoria de la pregunta</span>
+                    </button>
+                    <div className="flex gap-3">
+                      <button onClick={handleSaveConfig} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-cyan-400/10 text-cyan-400 hover:bg-cyan-400/20 border border-cyan-400/30 transition-all">
+                        <span className="material-symbols-outlined text-sm">save</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Guardar Formulario</span>
+                      </button>
+                      <button 
+                        onClick={handleDeleteQuestion}
+                        disabled={config.preguntas.length <= 1}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900/60 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Eliminar</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                    <button onClick={handleAddQuestion} className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors">
+                      <span className="material-symbols-outlined text-lg">add</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Añadir Pregunta</span>
+                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setCurrentQIndex(Math.max(0, currentQIndex - 1))}
+                        disabled={currentQIndex === 0}
+                        className="w-10 h-10 rounded-full bg-gray-900/60 flex items-center justify-center text-gray-600 border border-white/5 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span className="material-symbols-outlined">chevron_left</span>
+                      </button>
+                      <button 
+                        onClick={() => setCurrentQIndex(Math.min(config.preguntas.length - 1, currentQIndex + 1))}
+                        disabled={currentQIndex === config.preguntas.length - 1}
+                        className="w-10 h-10 rounded-full bg-gray-900/60 hover:bg-slate-700/50 transition-colors flex items-center justify-center text-white border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span className="material-symbols-outlined">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
 
@@ -743,6 +793,28 @@ const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, labe
 ───────────────────────────────────────────── */
 export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
   const [activeTab, setActiveTab] = useState<Tab>('panel');
+  
+  // Estado global para la configuración de la sesión
+  const [sessionConfig, setSessionConfig] = useState<SessionConfig>({
+    nombre: '',
+    descripcion: '',
+    estado: 'ACTIVA',
+    fechaActivacion: new Date().toISOString().split('T')[0],
+    duracionMinutos: 30,
+    modeloSeleccionado: 'heart',
+    preguntas: [
+      {
+        id: '1',
+        prompt: 'Un paciente con insuficiencia mitral presenta disnea de esfuerzo. En el examen ecocardiográfico, ¿cuál es la estructura anatómica primariamente afectada?',
+        options: [
+          { id: 'A', text: 'Válvula auriculoventricular izquierda', isCorrect: true },
+          { id: 'B', text: 'Válvula semilunar aórtica', isCorrect: false },
+          { id: 'C', text: 'Músculo papilar del ventrículo derecho', isCorrect: false },
+          { id: 'D', text: 'Tabique interventricular', isCorrect: false }
+        ]
+      }
+    ]
+  });
 
   const navItems: { tab: Tab; icon: string; label: string }[] = [
     { tab: 'panel',         icon: 'space_dashboard', label: 'Panel' },
@@ -855,9 +927,9 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
         {activeTab === 'panel'        && <PanelView onNewSession={() => setActiveTab('informacion')} />}
-        {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} />}
-        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} />}
-        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} />}
+        {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} config={sessionConfig} setConfig={setSessionConfig} />}
+        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} config={sessionConfig} setConfig={setSessionConfig} />}
+        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} config={sessionConfig} setConfig={setSessionConfig} />}
         {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} />}
         {activeTab === 'estadisticas' && <EstadisticasView />}
       </main>
