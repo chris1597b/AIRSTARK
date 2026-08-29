@@ -1,10 +1,10 @@
 /**
  * services/sessionSocket.ts
- * Capa de WebSocket independiente para la vista de estadísticas en vivo.
+ * Capa de WebSocket (Socket.IO) para la vista de estadísticas en vivo.
  *
  * RESPONSABILIDADES:
- *  - Conexión, desconexión y reconexión automática.
- *  - Envío del evento inicial `join_session` con el JWT de AIRSTARK.
+ *  - Conexión, desconexión y reconexión automática mediante socket.io-client.
+ *  - Autenticación segura mediante cookies HttpOnly (withCredentials).
  *  - Manejo centralizado de eventos del Backend hacia la UI.
  *
  * EVENTOS SOPORTADOS:
@@ -15,8 +15,14 @@
  *  - session_ended: La sesión finaliza o expira.
  */
 
-import { WsEventPayload, WsSessionStatePayload, WsStudentConnectedPayload, WsStudentAnsweredPayload, WsStudentCompletedPayload, WsSessionEndedPayload } from '../types/evaluation';
-import { getStoredToken } from './googleAuth';
+import { io, Socket } from 'socket.io-client';
+import { 
+  WsSessionStatePayload, 
+  WsStudentConnectedPayload, 
+  WsStudentAnsweredPayload, 
+  WsStudentCompletedPayload, 
+  WsSessionEndedPayload 
+} from '../types/evaluation';
 
 type ConnectionState = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED';
 
@@ -31,12 +37,9 @@ interface SocketCallbacks {
 }
 
 export class SessionSocket {
-  private socket: WebSocket | null = null;
+  private socket: Socket | null = null;
   private sessionId: string;
   private callbacks: SocketCallbacks;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 2000;
   private isIntentionalDisconnect = false;
 
   constructor(sessionId: string, callbacks: SocketCallbacks) {
@@ -45,24 +48,16 @@ export class SessionSocket {
   }
 
   /**
-   * Inicia la conexión WebSocket.
-   * Utiliza la misma URL base que el API pero con esquema ws:// o wss://.
+   * Inicia la conexión Socket.IO.
    */
   public connect() {
     this.isIntentionalDisconnect = false;
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
-    const token = getStoredToken();
-    if (!token) {
-      this.callbacks.onError?.(new Error('No hay token AIRSTARK disponible para la conexión WebSocket.'));
+    if (this.socket && this.socket.connected) {
       return;
     }
 
     this.notifyState('CONNECTING');
 
-    // Mapear http:// a ws:// y https:// a wss://
     let baseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!baseUrl) {
       if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_API === 'true') {
@@ -71,99 +66,67 @@ export class SessionSocket {
         return;
       }
       this.callbacks.onError?.(new Error('VITE_API_BASE_URL no está configurado.'));
+      this.notifyState('DISCONNECTED');
       return;
     }
 
-    const wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
-    
-    try {
-      this.socket = new WebSocket(wsUrl);
+    // Configuración para Socket.IO
+    this.socket = io(baseUrl, {
+      path: '/ws',
+      withCredentials: true, // Habilita envío de HttpOnly cookies
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
 
-      this.socket.onopen = () => {
-        this.reconnectAttempts = 0;
-        this.notifyState('CONNECTED');
-        
-        // Enviar evento de unión a la sesión
-        this.sendEvent('join_session', {
-          sessionId: this.sessionId,
-          token: token,
-        });
-      };
+    this.socket.on('connect', () => {
+      this.notifyState('CONNECTED');
+      // Solicitar unión a la sesión específica. 
+      // La autenticación ya se validó en el handshake vía Cookie.
+      this.socket?.emit('join_session', { sessionId: this.sessionId });
+    });
 
-      this.socket.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data) as WsEventPayload;
-          this.handleEvent(payload);
-        } catch (e) {
-          console.error('[AIRSTARK] Error parseando mensaje WebSocket:', e);
-        }
-      };
+    this.socket.on('session_state', (data: WsSessionStatePayload) => {
+      this.callbacks.onSessionState?.(data);
+    });
 
-      this.socket.onclose = () => {
-        this.socket = null;
-        this.notifyState('DISCONNECTED');
-        this.handleReconnect();
-      };
+    this.socket.on('student_connected', (data: WsStudentConnectedPayload) => {
+      this.callbacks.onStudentConnected?.(data);
+    });
 
-      this.socket.onerror = (err) => {
-        console.error('[AIRSTARK] WebSocket Error:', err);
-        // onclose will fire and handle reconnect
-      };
-    } catch (e: any) {
-      this.callbacks.onError?.(e);
+    this.socket.on('student_answered', (data: WsStudentAnsweredPayload) => {
+      this.callbacks.onStudentAnswered?.(data);
+    });
+
+    this.socket.on('student_completed', (data: WsStudentCompletedPayload) => {
+      this.callbacks.onStudentCompleted?.(data);
+    });
+
+    this.socket.on('session_ended', (data: WsSessionEndedPayload) => {
+      this.callbacks.onSessionEnded?.(data);
+    });
+
+    this.socket.on('disconnect', () => {
       this.notifyState('DISCONNECTED');
-      this.handleReconnect();
-    }
+    });
+
+    this.socket.on('connect_error', (err: Error) => {
+      console.error('[AIRSTARK] Socket.IO Connection Error:', err);
+      this.callbacks.onError?.(err);
+      this.notifyState('DISCONNECTED');
+    });
   }
 
   /**
-   * Desconecta el WebSocket intencionalmente (ej. al desmontar el componente).
+   * Desconecta el Socket intencionalmente (ej. al desmontar el componente).
    */
   public disconnect() {
     this.isIntentionalDisconnect = true;
     if (this.socket) {
-      this.socket.close();
+      this.socket.disconnect();
       this.socket = null;
     }
     this.notifyState('DISCONNECTED');
-  }
-
-  private sendEvent(event: string, data: any) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ event, data }));
-    }
-  }
-
-  private handleEvent(payload: WsEventPayload) {
-    switch (payload.event) {
-      case 'session_state':
-        this.callbacks.onSessionState?.(payload.data);
-        break;
-      case 'student_connected':
-        this.callbacks.onStudentConnected?.(payload.data);
-        break;
-      case 'student_answered':
-        this.callbacks.onStudentAnswered?.(payload.data);
-        break;
-      case 'student_completed':
-        this.callbacks.onStudentCompleted?.(payload.data);
-        break;
-      case 'session_ended':
-        this.callbacks.onSessionEnded?.(payload.data);
-        break;
-    }
-  }
-
-  private handleReconnect() {
-    if (this.isIntentionalDisconnect) return;
-    
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`[AIRSTARK] Reconectando WebSocket... (Intento ${this.reconnectAttempts})`);
-      setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts);
-    } else {
-      this.callbacks.onError?.(new Error('No se pudo establecer conexión en tiempo real con el servidor.'));
-    }
   }
 
   private notifyState(state: ConnectionState) {
@@ -175,21 +138,19 @@ export class SessionSocket {
     setTimeout(() => {
       this.notifyState('CONNECTED');
       // Mock inicial
-      this.handleEvent({
-        event: 'session_state',
-        data: {
-          sessionId: this.sessionId,
-          status: 'active',
-          students: []
-        }
+      this.callbacks.onSessionState?.({
+        sessionId: this.sessionId,
+        status: 'active',
+        students: []
       });
 
       // Simular un estudiante conectándose a los 3s
       if (!this.isIntentionalDisconnect) {
         setTimeout(() => {
-          this.handleEvent({
-            event: 'student_connected',
-            data: { studentId: 'mock-1', studentName: 'Juan Pérez (Mock)', joinedAt: new Date().toISOString() }
+          this.callbacks.onStudentConnected?.({ 
+            studentId: 'mock-1', 
+            studentName: 'Juan Pérez (Mock)', 
+            joinedAt: new Date().toISOString() 
           });
         }, 3000);
       }

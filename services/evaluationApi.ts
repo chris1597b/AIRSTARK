@@ -54,7 +54,8 @@ export class ApiError extends Error {
 // ── Helpers internos ──────────────────────────────────────────────────────────
 
 function resolveErrorCode(status: number): ApiErrorCode {
-  if (status === 401 || status === 403) return 'UNAUTHORIZED';
+  if (status === 401)                   return 'UNAUTHORIZED';
+  if (status === 403)                   return 'FORBIDDEN';
   if (status === 404)                   return 'SESSION_NOT_FOUND';
   if (status === 410)                   return 'SESSION_EXPIRED';
   if (status === 409)                   return 'SESSION_CANCELLED';
@@ -89,7 +90,10 @@ async function apiFetch<T>(
   const baseUrl = requireApiBaseUrl();
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}${path}`, options);
+    response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      credentials: 'include', // Para enviar/recibir cookies HttpOnly (sesión del profesor)
+    });
   } catch {
     throw new ApiError(
       0,
@@ -160,9 +164,22 @@ export async function loginWithGoogle(
     body: JSON.stringify({ credential: googleCredential }),
   });
 
-  // Almacenar el token AIRSTARK para todas las peticiones siguientes
-  storeAirStarkSession(authResponse.token, authResponse.user);
+  // El token real viaja como cookie HttpOnly, solo almacenamos el usuario en sesión local
+  storeAirStarkSession(authResponse.user);
   return authResponse;
+}
+
+/**
+ * Cierra la sesión en el Backend (invalida la cookie HttpOnly).
+ * El frontend también debe llamar a signOut() de googleAuth localmente.
+ */
+export async function logout(): Promise<void> {
+  if (USE_MOCK_API) return;
+  try {
+    await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+  } catch (err) {
+    console.error('Error al cerrar sesión en Backend:', err);
+  }
 }
 
 /**
@@ -182,11 +199,6 @@ export async function loginWithGoogle(
 export async function createEvaluationSession(
   draft: EvaluationDraft
 ): Promise<CreateSessionResponse> {
-  const token = getStoredToken();
-  if (!token) {
-    throw new ApiError(401, 'Sesión no autenticada. Por favor, inicia sesión nuevamente.', 'UNAUTHORIZED');
-  }
-
   const payload = mapDraftToCreateSessionRequest(draft);
 
   if (USE_MOCK_API) {
@@ -205,7 +217,7 @@ export async function createEvaluationSession(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      // Authorization header ya no se envía; se confía en la cookie HttpOnly
     },
     body: JSON.stringify(payload),
   });

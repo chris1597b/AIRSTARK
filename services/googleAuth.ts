@@ -29,7 +29,6 @@
 import type { AuthenticatedUser } from '../types/evaluation';
 
 // ── Claves de almacenamiento ─────────────────────────────────────────────────
-const AIRSTARK_TOKEN_KEY = 'airstark_token';
 const AIRSTARK_USER_KEY  = 'airstark_user';
 const GOOGLE_CRED_KEY    = 'airstark_google_cred';
 
@@ -174,21 +173,16 @@ export async function renderGoogleButton(container: HTMLElement): Promise<void> 
 // ── Almacenamiento de la sesión AIRSTARK ─────────────────────────────────────
 
 /**
- * Almacena el token AIRSTARK y el usuario autenticado recibidos del Backend.
+ * Almacena el usuario autenticado recibido del Backend.
  * Debe llamarse desde evaluationApi.loginWithGoogle() después de POST /auth/login.
- * Reemplaza el credential de Google como token activo para todas las peticiones.
+ * El token AIRSTARK ya no se guarda en el Frontend (se asume uso de Cookie HttpOnly).
  */
-export function storeAirStarkSession(token: string, user: AuthenticatedUser): void {
-  sessionStorage.setItem(AIRSTARK_TOKEN_KEY, token);
+export function storeAirStarkSession(user: AuthenticatedUser): void {
   sessionStorage.setItem(AIRSTARK_USER_KEY, JSON.stringify(user));
   // Limpiar el credential de Google ya que no es necesario después del login
   sessionStorage.removeItem(GOOGLE_CRED_KEY);
 }
 
-/**
- * En modo Mock (sin Backend), almacena el JWT de Google como token provisional.
- * Solo para desarrollo de UI. En producción, usar storeAirStarkSession().
- */
 export function storeMockSession(googleUser: GoogleUser, googleCredential: string): void {
   // Construir un AuthenticatedUser mínimo a partir del GoogleUser para compatibilidad de UI
   const mockUser: AuthenticatedUser = {
@@ -198,7 +192,6 @@ export function storeMockSession(googleUser: GoogleUser, googleCredential: strin
     picture: googleUser.picture,
     given_name: googleUser.given_name,
   };
-  sessionStorage.setItem(AIRSTARK_TOKEN_KEY, googleCredential); // provisional en mock
   sessionStorage.setItem(AIRSTARK_USER_KEY, JSON.stringify(mockUser));
   sessionStorage.removeItem(GOOGLE_CRED_KEY);
 }
@@ -206,11 +199,12 @@ export function storeMockSession(googleUser: GoogleUser, googleCredential: strin
 // ── Getters ───────────────────────────────────────────────────────────────────
 
 /**
- * Devuelve el token AIRSTARK (o Google credential en modo mock).
- * Este es el token que se envía en Authorization: Bearer <token>.
+ * @deprecated En producción, las peticiones utilizan cookies HttpOnly (credentials: 'include').
+ * Esta función se mantiene solo por compatibilidad con firmas previas si fuera necesaria, 
+ * pero retorna null ya que el token no debe ser accesible.
  */
 export function getStoredToken(): string | null {
-  return sessionStorage.getItem(AIRSTARK_TOKEN_KEY);
+  return null;
 }
 
 /**
@@ -238,7 +232,6 @@ export function getGoogleCredential(): string | null {
 // ── Sign Out ──────────────────────────────────────────────────────────────────
 
 export function signOut(email?: string): void {
-  sessionStorage.removeItem(AIRSTARK_TOKEN_KEY);
   sessionStorage.removeItem(AIRSTARK_USER_KEY);
   sessionStorage.removeItem(GOOGLE_CRED_KEY);
   if (window.google?.accounts?.id) {

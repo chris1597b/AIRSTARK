@@ -133,7 +133,8 @@ export interface CreateSessionResponse {
 // ==========================================
 
 export type ApiErrorCode =
-  | 'UNAUTHORIZED'         // 401 / 403
+  | 'UNAUTHORIZED'         // 401 — token ausente o inválido
+  | 'FORBIDDEN'            // 403 — autenticado pero sin permiso (ej. profesor no dueño de sesión)
   | 'SESSION_NOT_FOUND'    // 404 — sesión no existe
   | 'SESSION_EXPIRED'      // 410 — sesión expirada
   | 'SESSION_CANCELLED'    // 409 — sesión cancelada o completada
@@ -243,6 +244,7 @@ export interface SessionOptionForAR {
 export interface SessionQuestionForAR {
   id: string;
   prompt: string;
+  order: number;  // Orden de presentación definido por el Backend. Unity debe respetar este orden.
   options: SessionOptionForAR[];
 }
 

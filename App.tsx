@@ -9,6 +9,7 @@ import { ExcalidrawEditor } from './components/ExcalidrawEditor.tsx';
 import { Evaluation } from './components/Evaluation.tsx';
 import { AuthScreen } from './components/AuthScreen.tsx';
 import { getStoredUser, signOut } from './services/googleAuth.ts';
+import { logout } from './services/evaluationApi.ts';
 import { AuthenticatedUser } from './types/evaluation.ts';
 import "@excalidraw/excalidraw/index.css";
 
@@ -142,10 +143,11 @@ const App: React.FC = () => {
     setLoadingProgress(0);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     signOut(currentUser?.email);
     setCurrentUser(null);
     setIsAuthenticated(false);
+    await logout();
   };
 
   // --- QUIZ LOGIC ---
