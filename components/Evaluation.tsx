@@ -157,7 +157,7 @@ const InformacionView: React.FC<{ onNext: () => void; config: SessionConfig; set
                 type="date"
                 value={config.fechaActivacion}
                 onChange={(e) => setConfig({ ...config, fechaActivacion: e.target.value })}
-                className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200"
+                className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all duration-200 [color-scheme:dark]"
               />
             </div>
           </section>

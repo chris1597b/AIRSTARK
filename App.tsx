@@ -228,8 +228,8 @@ const App: React.FC = () => {
     const distance = clickedPart.isInternal ? "0.15m" : "105%";
     setCameraOrbit(`${theta}deg ${phi}deg ${distance}`);
 
-    // Lock rotation ONLY in Explore mode to allow free inspection during Quiz
-    if (mode !== AppMode.QUIZ) {
+    // Lock rotation ONLY in Explore mode
+    if (mode === AppMode.EXPLORE) {
       setLockedOrbit({ theta, phi });
     }
   };
@@ -474,8 +474,8 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          {/* Transparency Toggle - ONLY IN NAVIGATION MODE (Hidden in DRAW) */}
-          {mode === AppMode.NAVIGATION && mode !== AppMode.DRAW && (
+          {/* Transparency Toggle - ONLY IN NAVIGATION MODE */}
+          {mode === AppMode.NAVIGATION && (
             <button
               onClick={handleToggleTransparency}
               className={`px-4 py-2 rounded-full border border-blue-500/50 transition-all font-semibold text-sm shadow-lg backdrop-blur-md
