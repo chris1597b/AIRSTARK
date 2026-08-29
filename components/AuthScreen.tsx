@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle, GoogleUser } from '../services/googleAuth';
+import { loginWithGoogle } from '../services/evaluationApi';
+import type { AuthenticatedUser } from '../types/evaluation';
 
 interface AuthScreenProps {
-  onAuthenticated: (user: GoogleUser) => void;
+  onAuthenticated: (user: AuthenticatedUser) => void;
   onGuest: () => void;
 }
 
@@ -28,8 +30,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
     const setupAuth = async () => {
       try {
         await initializeGoogleAuth(
-          (user) => {
-            if (isMounted) onAuthenticated(user);
+          async (credential, googleUser) => {
+            if (!isMounted) return;
+            try {
+              // Intercambiar credential de Google por token AIRSTARK
+              const authResponse = await loginWithGoogle(credential, googleUser);
+              if (isMounted) onAuthenticated(authResponse.user);
+            } catch (err: any) {
+              if (isMounted) {
+                console.error('[AIRSTARK] Error al obtener token AIRSTARK:', err);
+                setError(err.message ?? 'Error al autenticar con el servidor');
+                setIsLoading(false);
+              }
+            }
           },
           (err) => {
             if (isMounted) {
@@ -41,7 +54,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
         );
 
         if (googleBtnRef.current && isMounted) {
-          // Clear container before rendering to prevent double buttons on React strict-mode/re-renders
           googleBtnRef.current.innerHTML = '';
           await renderGoogleButton(googleBtnRef.current);
         }
@@ -66,7 +78,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
     setError(null);
     try {
       await signInWithGoogle(
-        (user) => onAuthenticated(user),
+        async (credential, googleUser) => {
+          try {
+            const authResponse = await loginWithGoogle(credential, googleUser);
+            onAuthenticated(authResponse.user);
+          } catch (err: any) {
+            setError(err.message ?? 'Error al autenticar con el servidor');
+            setIsLoading(false);
+          }
+        },
         (err) => {
           setError(err.message ?? 'Error al iniciar sesión');
           setIsLoading(false);

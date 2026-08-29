@@ -286,7 +286,7 @@ const InformacionView: React.FC<{ onNext: () => void; config: EvaluationDraft; s
 /* ─────────────────────────────────────────────
    Sub-vista: Modelo
 ───────────────────────────────────────────── */
-const ModeloView: React.FC<{ onNext: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, config, setConfig }) => {
+const ModeloView: React.FC<{ onNext: () => void; onCancel: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, onCancel, config, setConfig }) => {
   const models = [
     { id: 'heart', icon: 'cardiology', label: 'Heart' },
     { id: 'brain', icon: 'neurology', label: 'Brain' },
@@ -335,7 +335,10 @@ const ModeloView: React.FC<{ onNext: () => void; config: EvaluationDraft; setCon
 
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row justify-end items-center gap-4 mt-8 pt-6 border-t border-white/10">
-        <button className="w-full sm:w-auto h-12 px-8 text-gray-400 font-bold text-xs uppercase tracking-widest hover:text-white transition-colors">
+        <button
+          onClick={onCancel}
+          className="w-full sm:w-auto h-12 px-8 text-gray-400 font-bold text-xs uppercase tracking-widest hover:text-white transition-colors"
+        >
           Cancelar
         </button>
         <button onClick={onNext} className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] group active:scale-95">
@@ -394,9 +397,10 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; 
   };
 
   const handleSaveConfig = async () => {
-    // Aquí es donde se llamaría a la API posteriormente.
-    console.log("Guardando configuración...", config);
-    alert("Configuración guardada en estado global (Próximamente API)");
+    // TODO: Conectar con el Backend cuando el endpoint POST /api/v1/evaluations esté disponible.
+    // Por ahora el estado vive en el componente padre (EvaluationDraft).
+    // No se requiere acción adicional hasta que el Backend esté implementado.
+    console.info('[AIRSTARK] Configuración del cuestionario lista en estado local:', config);
   };
 
   const handleGenerateQR = () => {
@@ -552,7 +556,8 @@ const CodigoQRView: React.FC<{
   onNavigateToStats: () => void;
   config: EvaluationDraft;
   onRetry: () => void;
-}> = ({ onNavigateToStats, config, onRetry }) => {
+  onSessionCreated?: (sessionId: string) => void;
+}> = ({ onNavigateToStats, config, onRetry, onSessionCreated }) => {
   const [status, setStatus] = React.useState<'idle' | 'creating' | 'created' | 'error' | 'expired'>('idle');
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [expiresAt, setExpiresAt] = React.useState<Date | null>(null);
@@ -570,6 +575,7 @@ const CodigoQRView: React.FC<{
         setSessionId(response.sessionId);
         setExpiresAt(new Date(response.expiresAt));
         setStatus('created');
+        if (onSessionCreated) onSessionCreated(response.sessionId);
       } catch (err: any) {
         if (!mounted) return;
         console.error(err);
@@ -713,7 +719,55 @@ const CodigoQRView: React.FC<{
 /* ─────────────────────────────────────────────
    Sub-vista: Estadísticas
 ───────────────────────────────────────────── */
-const EstadisticasView: React.FC = () => {
+import { SessionSocket } from '../services/sessionSocket';
+import { Student } from '../types/evaluation';
+
+const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationDraft }> = ({ sessionId, config }) => {
+  const [students, setStudents] = React.useState<Student[]>([]);
+  const [connState, setConnState] = React.useState<'DISCONNECTED'|'CONNECTING'|'CONNECTED'>('DISCONNECTED');
+  const [sessionStatus, setSessionStatus] = React.useState<string>('active');
+
+  React.useEffect(() => {
+    if (!sessionId) return;
+
+    const socket = new SessionSocket(sessionId, {
+      onStateChange: setConnState,
+      onSessionState: (data) => {
+        setSessionStatus(data.status);
+        setStudents(data.students);
+      },
+      onStudentConnected: (data) => {
+        setStudents(prev => {
+          if (prev.find(s => s.studentId === data.studentId)) return prev;
+          return [...prev, { studentId: data.studentId, studentName: data.studentName, status: 'connected', score: 0, answered: 0, totalQuestions: config.preguntas.length }];
+        });
+      },
+      onStudentAnswered: (data) => {
+        setStudents(prev => prev.map(s => {
+          if (s.studentId === data.studentId) {
+            return { ...s, status: 'in_progress', answered: Math.floor(data.progress * s.totalQuestions / 100) };
+          }
+          return s;
+        }));
+      },
+      onStudentCompleted: (data) => {
+        setStudents(prev => prev.map(s => {
+          if (s.studentId === data.studentId) {
+            return { ...s, status: 'completed', score: data.score, answered: data.totalQuestions };
+          }
+          return s;
+        }));
+      },
+      onSessionEnded: (data) => {
+        setSessionStatus(data.status);
+      },
+      onError: (err) => console.error('[AIRSTARK] Error en estadísticas WebSocket:', err),
+    });
+
+    socket.connect();
+    return () => socket.disconnect();
+  }, [sessionId, config.preguntas.length]);
+
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       {/* Context Header */}
@@ -723,24 +777,36 @@ const EstadisticasView: React.FC = () => {
             <span className="flex items-center justify-center w-8 h-8 rounded bg-cyan-400/20 text-cyan-400">
               <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
             </span>
-            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Sesión: Corazón</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Sesión: {config.nombre || 'Evaluación'}</h1>
           </div>
           <div className="flex flex-wrap gap-4 text-gray-400 text-sm font-semibold">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">timer</span>
-              <span>Tiempo: 5 min</span>
+              <span>Tiempo: {config.duracionMinutos} min</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">groups</span>
-              <span>Estudiantes: 3/30</span>
+              <span>Estudiantes: {students.length}</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-            <span className="text-xs font-bold text-green-400 uppercase tracking-widest">EN VIVO</span>
-          </div>
+          {connState === 'CONNECTED' ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+              <span className="text-xs font-bold text-green-400 uppercase tracking-widest">EN VIVO</span>
+            </div>
+          ) : connState === 'CONNECTING' ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/30">
+              <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
+              <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">CONECTANDO</span>
+            </div>
+          ) : (
+             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30">
+              <div className="w-2 h-2 rounded-full bg-red-400"></div>
+              <span className="text-xs font-bold text-red-400 uppercase tracking-widest">DESCONECTADO</span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -864,6 +930,7 @@ const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, labe
 export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
   const [activeTab, setActiveTab] = useState<Tab>('panel');
   const currentUser = getStoredUser();
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   
   // Estado global para la configuración de la sesión
   const [sessionConfig, setEvaluationDraft] = useState<EvaluationDraft>({
@@ -1006,10 +1073,10 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
 
         {activeTab === 'panel'        && <PanelView onNewSession={() => setActiveTab('informacion')} />}
         {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} config={sessionConfig} setConfig={setEvaluationDraft} />}
-        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} config={sessionConfig} setConfig={setEvaluationDraft} />}
+        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} onCancel={() => setActiveTab('informacion')} config={sessionConfig} setConfig={setEvaluationDraft} />}
         {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} config={sessionConfig} setConfig={setEvaluationDraft} />}
-        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} config={sessionConfig} onRetry={() => setActiveTab('cuestionario')} />}
-        {activeTab === 'estadisticas' && <EstadisticasView />}
+        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} config={sessionConfig} onRetry={() => setActiveTab('cuestionario')} onSessionCreated={setActiveSessionId} />}
+        {activeTab === 'estadisticas' && <EstadisticasView sessionId={activeSessionId} config={sessionConfig} />}
       </main>
     </div>
   );

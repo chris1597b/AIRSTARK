@@ -8,7 +8,8 @@ import { getQuizQuestion } from './services/geminiService.ts';
 import { ExcalidrawEditor } from './components/ExcalidrawEditor.tsx';
 import { Evaluation } from './components/Evaluation.tsx';
 import { AuthScreen } from './components/AuthScreen.tsx';
-import { GoogleUser, getStoredUser, signOut } from './services/googleAuth.ts';
+import { getStoredUser, signOut } from './services/googleAuth.ts';
+import { AuthenticatedUser } from './types/evaluation.ts';
 import "@excalidraw/excalidraw/index.css";
 
 // Extend JSX for model-viewer
@@ -44,7 +45,7 @@ const App: React.FC = () => {
   const [selectedPart, setSelectedPart] = useState<AnatomicalPart | null>(null);
 
   // Auth State
-  const [currentUser, setCurrentUser] = useState<GoogleUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
@@ -125,7 +126,7 @@ const App: React.FC = () => {
     };
   }, [isAuthenticated]);
 
-  const handleAuthenticated = (user: GoogleUser) => {
+  const handleAuthenticated = (user: AuthenticatedUser) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
     // Restart model loading state
