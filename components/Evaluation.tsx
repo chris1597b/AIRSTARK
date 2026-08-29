@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getStoredUser } from '../services/googleAuth.ts';
 
 interface EvaluationProps {
   onExit: () => void;
@@ -793,6 +794,7 @@ const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, labe
 ───────────────────────────────────────────── */
 export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
   const [activeTab, setActiveTab] = useState<Tab>('panel');
+  const currentUser = getStoredUser();
   
   // Estado global para la configuración de la sesión
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({
@@ -844,14 +846,21 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         {/* Perfil */}
         <div className="p-6 flex items-center gap-4 border-b border-white/10">
           <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center">
-            <img
-              alt="Teacher Profile"
-              className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN-wfwsESke75JMPQJFybEXNj2F-us_WAPc0BZETnOVPjwiENbngQv1s2Egmqb3L5Pzo_APAIFMGZYqZU0xe1nMm_QtDHc5cyaej9ci88TDG-GIl63Dx3OSfJ7HZcCpcdNz3c4JYiYeI009Eoi6b6ciyauK9-k5xvuDCICv42GPapOG0hXGBkS8jx4gqPtreWxDUJ3H_kS54KK3N7cMUyWWBzMNWG0lK22_7TtENq7kVqnPuwcCks-aS6A8IVQnVO5HAbRFIqETlRI"
-            />
+            {currentUser?.picture ? (
+              <img
+                alt="Teacher Profile"
+                className="w-full h-full object-cover"
+                src={currentUser.picture}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '24px' }}>account_circle</span>
+            )}
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">Dr. Miller</h3>
+            <h3 className="text-sm font-bold text-white max-w-[130px] truncate" title={currentUser?.name || 'Dr. Miller'}>
+              {currentUser?.name || 'Dr. Miller'}
+            </h3>
             <p className="text-xs text-gray-400">Instructor Principal</p>
           </div>
         </div>
