@@ -7,21 +7,9 @@ interface EvaluationProps {
 
 type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | 'estadisticas';
 
-export interface Question {
-  id: string;
-  prompt: string;
-  options: { id: string; text: string; isCorrect: boolean }[];
-}
-
-export interface SessionConfig {
-  nombre: string;
-  descripcion: string;
-  estado: 'ACTIVA' | 'DESACTIVA';
-  fechaActivacion: string;
-  duracionMinutos: number;
-  modeloSeleccionado: string;
-  preguntas: Question[];
-}
+import { QRCodeSVG } from 'qrcode.react';
+import { EvaluationDraft, EvaluationQuestion } from '../types/evaluation';
+import { createEvaluationSession, ApiError } from '../services/evaluationApi';
 
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
@@ -129,7 +117,7 @@ const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => 
 /* ─────────────────────────────────────────────
    Sub-vista: Información (desde Stitch)
 ───────────────────────────────────────────── */
-const InformacionView: React.FC<{ onNext: () => void; config: SessionConfig; setConfig: React.Dispatch<React.SetStateAction<SessionConfig>> }> = ({ onNext, config, setConfig }) => {
+const InformacionView: React.FC<{ onNext: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, config, setConfig }) => {
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       {/* Header */}
@@ -298,7 +286,7 @@ const InformacionView: React.FC<{ onNext: () => void; config: SessionConfig; set
 /* ─────────────────────────────────────────────
    Sub-vista: Modelo
 ───────────────────────────────────────────── */
-const ModeloView: React.FC<{ onNext: () => void; config: SessionConfig; setConfig: React.Dispatch<React.SetStateAction<SessionConfig>> }> = ({ onNext, config, setConfig }) => {
+const ModeloView: React.FC<{ onNext: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, config, setConfig }) => {
   const models = [
     { id: 'heart', icon: 'cardiology', label: 'Heart' },
     { id: 'brain', icon: 'neurology', label: 'Brain' },
@@ -362,12 +350,12 @@ const ModeloView: React.FC<{ onNext: () => void; config: SessionConfig; setConfi
 /* ─────────────────────────────────────────────
    Sub-vista: Cuestionario
 ───────────────────────────────────────────── */
-const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; setConfig: React.Dispatch<React.SetStateAction<SessionConfig>> }> = ({ onNext, config, setConfig }) => {
+const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, config, setConfig }) => {
   const [currentQIndex, setCurrentQIndex] = useState(0);
 
   const currentQ = config.preguntas[currentQIndex];
 
-  const updateCurrentQuestion = (updates: Partial<Question>) => {
+  const updateCurrentEvaluationQuestion = (updates: Partial<EvaluationQuestion>) => {
     const newPreguntas = [...config.preguntas];
     newPreguntas[currentQIndex] = { ...newPreguntas[currentQIndex], ...updates };
     setConfig({ ...config, preguntas: newPreguntas });
@@ -375,16 +363,16 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
 
   const updateOption = (optId: string, text: string) => {
     const newOptions = currentQ.options.map(o => o.id === optId ? { ...o, text } : o);
-    updateCurrentQuestion({ options: newOptions });
+    updateCurrentEvaluationQuestion({ options: newOptions });
   };
 
   const setCorrectOption = (optId: string) => {
     const newOptions = currentQ.options.map(o => ({ ...o, isCorrect: o.id === optId }));
-    updateCurrentQuestion({ options: newOptions });
+    updateCurrentEvaluationQuestion({ options: newOptions });
   };
 
-  const handleAddQuestion = () => {
-    const newQ: Question = {
+  const handleAddEvaluationQuestion = () => {
+    const newQ: EvaluationQuestion = {
       id: Date.now().toString(),
       prompt: '',
       options: [
@@ -398,7 +386,7 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
     setCurrentQIndex(config.preguntas.length);
   };
 
-  const handleDeleteQuestion = () => {
+  const handleDeleteEvaluationQuestion = () => {
     if (config.preguntas.length <= 1) return; // Prevent deleting last question
     const newPreguntas = config.preguntas.filter((_, i) => i !== currentQIndex);
     setConfig({ ...config, preguntas: newPreguntas });
@@ -409,6 +397,22 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
     // Aquí es donde se llamaría a la API posteriormente.
     console.log("Guardando configuración...", config);
     alert("Configuración guardada en estado global (Próximamente API)");
+  };
+
+  const handleGenerateQR = () => {
+    if (!config.nombre.trim()) {
+      alert("Por favor, ingrese un nombre para la sesión en la pestaña de Información.");
+      return;
+    }
+    if (config.preguntas.some(q => !q.prompt.trim() || q.options.some(o => !o.text.trim()))) {
+      alert("Todas las preguntas y opciones deben tener texto.");
+      return;
+    }
+    if (config.preguntas.some(q => !q.options.some(o => o.isCorrect))) {
+      alert("Cada pregunta debe tener al menos una opción correcta.");
+      return;
+    }
+    onNext();
   };
 
   return (
@@ -431,20 +435,20 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-gray-400">quiz</span>
-                  Clinical Questions ({config.preguntas.length})
+                  Clinical EvaluationQuestions ({config.preguntas.length})
                 </h2>
                 <div className="text-xs font-bold text-gray-400 bg-gray-900/60 px-3 py-1.5 rounded-lg border border-white/5">
                   Q{currentQIndex + 1} of {config.preguntas.length}
                 </div>
               </div>
 
-              {/* Question Editor */}
+              {/* EvaluationQuestion Editor */}
               <div className="space-y-6 flex-1">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Question Prompt</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">EvaluationQuestion Prompt</label>
                   <textarea 
                     value={currentQ.prompt}
-                    onChange={(e) => updateCurrentQuestion({ prompt: e.target.value })}
+                    onChange={(e) => updateCurrentEvaluationQuestion({ prompt: e.target.value })}
                     placeholder="Escriba la pregunta aquí..."
                     className="w-full bg-gray-900/60 border border-white/10 rounded-lg p-4 text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none transition-all resize-none h-24" 
                   />
@@ -494,7 +498,7 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
                         <span className="text-xs font-bold uppercase tracking-wider">Guardar Formulario</span>
                       </button>
                       <button 
-                        onClick={handleDeleteQuestion}
+                        onClick={handleDeleteEvaluationQuestion}
                         disabled={config.preguntas.length <= 1}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900/60 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                         <span className="material-symbols-outlined text-sm">delete</span>
@@ -504,7 +508,7 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
                   </div>
                   
                   <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                    <button onClick={handleAddQuestion} className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors">
+                    <button onClick={handleAddEvaluationQuestion} className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors">
                       <span className="material-symbols-outlined text-lg">add</span>
                       <span className="text-xs font-bold uppercase tracking-wider">Añadir Pregunta</span>
                     </button>
@@ -532,7 +536,7 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
 
       {/* Action Bar */}
       <div className="flex justify-end mt-8 pt-6 border-t border-white/10">
-        <button onClick={onNext} className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
+        <button onClick={handleGenerateQR} className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
           <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>qr_code_2</span>
           Generar código QR
         </button>
@@ -544,7 +548,53 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: SessionConfig; se
 /* ─────────────────────────────────────────────
    Sub-vista: Código QR
 ───────────────────────────────────────────── */
-const CodigoQRView: React.FC<{ onNavigateToStats: () => void }> = ({ onNavigateToStats }) => {
+const CodigoQRView: React.FC<{ 
+  onNavigateToStats: () => void;
+  config: EvaluationDraft;
+  onRetry: () => void;
+}> = ({ onNavigateToStats, config, onRetry }) => {
+  const [status, setStatus] = React.useState<'idle' | 'creating' | 'created' | 'error' | 'expired'>('idle');
+  const [sessionId, setSessionId] = React.useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = React.useState<Date | null>(null);
+  const [errorMessage, setErrorMessage] = React.useState<string>('');
+
+  React.useEffect(() => {
+    let mounted = true;
+    
+    const initSession = async () => {
+      if (status !== 'idle') return;
+      setStatus('creating');
+      try {
+        const response = await createEvaluationSession(config);
+        if (!mounted) return;
+        setSessionId(response.sessionId);
+        setExpiresAt(new Date(response.expiresAt));
+        setStatus('created');
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error(err);
+        setErrorMessage(err.message || 'Error al crear la sesión');
+        setStatus('error');
+      }
+    };
+
+    initSession();
+
+    return () => { mounted = false; };
+  }, [config, status]);
+
+  React.useEffect(() => {
+    if (status !== 'created' || !expiresAt) return;
+    
+    const checkExpiration = setInterval(() => {
+      if (new Date() > expiresAt) {
+        setStatus('expired');
+      }
+    }, 1000);
+    
+    return () => clearInterval(checkExpiration);
+  }, [status, expiresAt]);
+
   return (
     <div className="w-full flex-1 flex flex-col lg:flex-row gap-8 -mx-4 md:-mx-8 px-4 md:px-8">
       {/* Main Content Area */}
@@ -554,46 +604,81 @@ const CodigoQRView: React.FC<{ onNavigateToStats: () => void }> = ({ onNavigateT
         
         <div className="w-full max-w-2xl flex flex-col items-center text-center space-y-8 relative z-10">
           <div className="flex flex-col items-center space-y-4">
-            <span className="material-symbols-outlined text-green-400 text-5xl drop-shadow-[0_0_15px_rgba(46,204,113,0.3)]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-            <h1 className="text-4xl font-bold text-white tracking-tight">Sesión de Corazón</h1>
-            <p className="text-xl font-bold text-white md:hidden">Sesión Lista para la Clase</p>
+            <span className="material-symbols-outlined text-green-400 text-5xl drop-shadow-[0_0_15px_rgba(46,204,113,0.3)]" style={{ fontVariationSettings: "'FILL' 1" }}>
+              {status === 'created' ? 'check_circle' : status === 'creating' ? 'sync' : 'error'}
+            </span>
+            <h1 className="text-4xl font-bold text-white tracking-tight">{config.nombre || 'Sesión'}</h1>
+            {status === 'created' && <p className="text-xl font-bold text-white md:hidden">Sesión Lista para la Clase</p>}
           </div>
           
-          <div className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 backdrop-blur-md px-4 py-2 rounded-full">
-            <span className="material-symbols-outlined text-indigo-400 text-sm">schedule</span>
-            <span className="text-sm font-bold text-indigo-400">Código válido por 2 horas</span>
-          </div>
+          {status === 'created' && expiresAt && (
+            <div className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 backdrop-blur-md px-4 py-2 rounded-full">
+              <span className="material-symbols-outlined text-indigo-400 text-sm">schedule</span>
+              <span className="text-sm font-bold text-indigo-400">Válido hasta {expiresAt.toLocaleTimeString()}</span>
+            </div>
+          )}
           
           <div className="flex items-center justify-center gap-6 mt-2">
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest opacity-80">tiempo limite</span>
-              <span className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.2)]">5 MIN</span>
+              <span className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.2)]">{config.duracionMinutos} MIN</span>
             </div>
             <div className="w-px h-8 bg-white/10"></div>
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest opacity-80">preguntas</span>
-              <span className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.2)]">3</span>
+              <span className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.2)]">{config.preguntas.length}</span>
             </div>
           </div>
           
-          <div className="bg-gray-800/60 backdrop-blur-xl border border-white/10 p-6 rounded-xl shadow-2xl relative group">
+          <div className="bg-gray-800/60 backdrop-blur-xl border border-white/10 p-6 rounded-xl shadow-2xl relative group min-h-[350px] flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-xl pointer-events-none"></div>
-            <div className="w-[300px] h-[300px] bg-white rounded-lg p-4 flex items-center justify-center relative overflow-hidden ring-1 ring-white/20 shadow-[0_0_30px_rgba(0,255,255,0.1)] group-hover:shadow-[0_0_40px_rgba(0,255,255,0.2)] transition-shadow duration-500">
-              <div className="w-full h-full opacity-20" style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMCAwaDEwdjEwSDB6IiBmaWxsPSIjMDAwIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiLz48L3N2Zz4=')", backgroundSize: '20px 20px' }}></div>
-              <span className="absolute text-gray-900 text-sm font-bold uppercase tracking-widest opacity-50">QR PLACEHOLDER</span>
-              <div className="absolute top-2 left-2 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-md"></div>
-              <div className="absolute top-2 right-2 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-md"></div>
-              <div className="absolute bottom-2 left-2 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-md"></div>
-              <div className="absolute bottom-2 right-2 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-md"></div>
-            </div>
+            
+            {status === 'creating' && (
+              <div className="flex flex-col items-center justify-center text-cyan-400 animate-pulse">
+                <span className="material-symbols-outlined text-6xl animate-spin mb-4">sync</span>
+                <p className="font-bold tracking-widest uppercase">Generando Sesión...</p>
+              </div>
+            )}
+
+            {status === 'error' && (
+              <div className="flex flex-col items-center justify-center text-red-400">
+                <span className="material-symbols-outlined text-6xl mb-4">error</span>
+                <p className="font-bold mb-4">{errorMessage}</p>
+                <button onClick={onRetry} className="px-6 py-2 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors">Volver y Reintentar</button>
+              </div>
+            )}
+
+            {status === 'expired' && (
+              <div className="flex flex-col items-center justify-center text-orange-400">
+                <span className="material-symbols-outlined text-6xl mb-4">timer_off</span>
+                <p className="font-bold mb-4">El código QR ha expirado.</p>
+                <button onClick={onRetry} className="px-6 py-2 bg-orange-500/20 rounded-lg hover:bg-orange-500/30 transition-colors">Generar Nueva Sesión</button>
+              </div>
+            )}
+
+            {status === 'created' && sessionId && (
+              <div className="w-[300px] h-[300px] bg-white rounded-lg p-4 flex items-center justify-center relative overflow-hidden ring-1 ring-white/20 shadow-[0_0_30px_rgba(0,255,255,0.1)] group-hover:shadow-[0_0_40px_rgba(0,255,255,0.2)] transition-shadow duration-500">
+                <QRCodeSVG value={sessionId} size={260} level="H" includeMargin={false} />
+                <div className="absolute top-2 left-2 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-md pointer-events-none"></div>
+                <div className="absolute top-2 right-2 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-md pointer-events-none"></div>
+                <div className="absolute bottom-2 left-2 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-md pointer-events-none"></div>
+                <div className="absolute bottom-2 right-2 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-md pointer-events-none"></div>
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full pt-4">
-            <button className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all duration-200 active:scale-95">
+            <button 
+              disabled={status !== 'created'}
+              onClick={() => { if(sessionId) navigator.clipboard.writeText(sessionId); }}
+              className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
               <span className="material-symbols-outlined text-lg">content_copy</span>
-              <span>Copiar Enlace de Invitación</span>
+              <span>Copiar ID de Sesión</span>
             </button>
-            <button onClick={onNavigateToStats} className="w-full sm:w-auto h-12 px-8 bg-transparent border-2 border-indigo-500 text-indigo-400 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-indigo-500/10 transition-all duration-200 active:scale-95">
+            <button 
+              disabled={status !== 'created'}
+              onClick={onNavigateToStats} 
+              className="w-full sm:w-auto h-12 px-8 bg-transparent border-2 border-indigo-500 text-indigo-400 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-indigo-500/10 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
               <span className="material-symbols-outlined text-lg">monitoring</span>
               <span>Ir a Resultados en Vivo</span>
             </button>
@@ -609,30 +694,14 @@ const CodigoQRView: React.FC<{ onNavigateToStats: () => void }> = ({ onNavigateT
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_#2ECC71]"></div>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-            <div className="w-full max-h-48 overflow-y-auto bg-gray-900/50 border border-white/10 rounded-xl p-4 space-y-3 mb-4 custom-scrollbar">
-              <div className="flex items-center space-x-3 border-b border-white/10 pb-2">
-                <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                <span className="text-sm font-medium text-white">Ana Martínez</span>
-              </div>
-              <div className="flex items-center space-x-3 border-b border-white/10 pb-2">
-                <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                <span className="text-sm font-medium text-white">Carlos Ramírez</span>
-              </div>
-              <div className="flex items-center space-x-3 pb-1">
-                <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                <span className="text-sm font-medium text-white">Laura Gómez</span>
-              </div>
+            <div className="text-gray-400 text-sm px-4 py-8 bg-gray-900/50 rounded-xl border border-white/5 border-dashed">
+              Los estudiantes conectados aparecerán aquí en Fase 2 (WebSockets).
             </div>
             
             <div className="relative w-48 h-48 rounded-full border border-white/10 bg-gray-900/50 flex flex-col items-center justify-center shadow-inner">
               <div className="absolute inset-2 rounded-full border-2 border-dashed border-indigo-500/30 animate-[spin_20s_linear_infinite]"></div>
-              <span className="text-[72px] leading-none text-cyan-400 drop-shadow-[0_0_15px_rgba(0,255,255,0.2)] font-bold tracking-tighter">3</span>
+              <span className="text-[72px] leading-none text-cyan-400 drop-shadow-[0_0_15px_rgba(0,255,255,0.2)] font-bold tracking-tighter">0</span>
               <span className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-[0.15em]">Estudiantes<br/>Conectados</span>
-            </div>
-            
-            <div className="flex items-center space-x-3 text-gray-400 bg-gray-900 px-4 py-2 rounded-full border border-white/10">
-              <span className="material-symbols-outlined text-cyan-400 animate-[spin_3s_linear_infinite]" style={{ fontSize: '20px' }}>sync</span>
-              <span className="text-sm font-medium">Sincronización activa</span>
             </div>
           </div>
         </div>
@@ -797,7 +866,7 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
   const currentUser = getStoredUser();
   
   // Estado global para la configuración de la sesión
-  const [sessionConfig, setSessionConfig] = useState<SessionConfig>({
+  const [sessionConfig, setEvaluationDraft] = useState<EvaluationDraft>({
     nombre: '',
     descripcion: '',
     estado: 'ACTIVA',
@@ -936,10 +1005,10 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
         {activeTab === 'panel'        && <PanelView onNewSession={() => setActiveTab('informacion')} />}
-        {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} config={sessionConfig} setConfig={setSessionConfig} />}
-        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} config={sessionConfig} setConfig={setSessionConfig} />}
-        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} config={sessionConfig} setConfig={setSessionConfig} />}
-        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} />}
+        {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} config={sessionConfig} setConfig={setEvaluationDraft} />}
+        {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} config={sessionConfig} setConfig={setEvaluationDraft} />}
+        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} config={sessionConfig} setConfig={setEvaluationDraft} />}
+        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} config={sessionConfig} onRetry={() => setActiveTab('cuestionario')} />}
         {activeTab === 'estadisticas' && <EstadisticasView />}
       </main>
     </div>

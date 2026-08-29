@@ -85,6 +85,7 @@ export async function initializeGoogleAuth(
       try {
         const user = decodeJwt(response.credential);
         sessionStorage.setItem('airstark_user', JSON.stringify(user));
+        sessionStorage.setItem('airstark_token', response.credential);
         if (globalCallback) globalCallback(user);
       } catch (e: any) {
         if (globalErrorCallback) globalErrorCallback(e);
@@ -136,6 +137,7 @@ export async function renderGoogleButton(container: HTMLElement): Promise<void> 
 /** Sign out — clears session and revokes GIS state */
 export function signOut(email?: string): void {
   sessionStorage.removeItem('airstark_user');
+  sessionStorage.removeItem('airstark_token');
   if (window.google?.accounts?.id) {
     window.google.accounts.id.disableAutoSelect();
     if (email) window.google.accounts.id.revoke(email, () => {});
@@ -150,4 +152,9 @@ export function getStoredUser(): GoogleUser | null {
   } catch {
     return null;
   }
+}
+
+/** Return the raw JWT credential for API authentication */
+export function getStoredToken(): string | null {
+  return sessionStorage.getItem('airstark_token');
 }
