@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ANATOMY_DATA, AnatomicalPart, AppMode } from './types.ts';
-import { useHandControl } from './hooks/useHandControl.ts';
-import { InfoPanel } from './components/InfoPanel.tsx';
-import { VoiceControl } from './components/VoiceControl.tsx';
-import { ScreenRecorder } from './components/ScreenRecorder.tsx';
-import { getQuizQuestion } from './services/geminiService.ts';
-import { ExcalidrawEditor } from './components/ExcalidrawEditor.tsx';
-import { Evaluation } from './components/Evaluation.tsx';
-import { AuthScreen } from './components/AuthScreen.tsx';
-import { getStoredUser, signOut } from './services/googleAuth.ts';
-import { logout } from './services/evaluationApi.ts';
-import { AuthenticatedUser } from './types/evaluation.ts';
-import "@excalidraw/excalidraw/index.css";
+import { ANATOMY_DATA, AnatomicalPart, AppMode } from './shared/types/index.ts';
+import { useHandControl } from './features/exploration/hooks/useHandControl.ts';
+import { InfoPanel } from './features/exploration/components/InfoPanel.tsx';
+import { VoiceControl } from './features/exploration/components/VoiceControl.tsx';
+import { ScreenRecorder } from './features/recording/components/ScreenRecorder.tsx';
+import { getQuizQuestion } from './shared/lib/geminiService.ts';
+import { ExcalidrawEditor } from './features/whiteboard/components/ExcalidrawEditor.tsx';
+import { Evaluation } from './features/quiz/components/Evaluation.tsx';
+import { AuthScreen } from './features/auth/components/AuthScreen.tsx';
+import { getStoredUser, signOut } from './features/auth/services/googleAuth.ts';
+import { logout } from './features/quiz/services/evaluationApi.ts';
+import { AuthenticatedUser } from './features/quiz/types/evaluation.ts';
+import "./index.css";
 
 // Extend JSX for model-viewer
 declare module 'react' {

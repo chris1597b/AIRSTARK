@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AnatomicalPart, AppMode } from '../types.ts';
+import { AnatomicalPart, AppMode } from '../../../shared/types/index.ts';
 
 interface CTPanelProps {
     selectedPart: AnatomicalPart | null;

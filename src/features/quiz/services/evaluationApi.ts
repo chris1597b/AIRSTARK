@@ -25,8 +25,8 @@ import {
   AuthenticatedUser,
   ApiErrorCode,
 } from '../types/evaluation';
-import { mapDraftToCreateSessionRequest } from './evaluationMapper';
-import { getStoredToken, storeAirStarkSession, storeMockSession } from './googleAuth';
+import { mapDraftToCreateSessionRequest } from './evaluationMapper.ts';
+import { getStoredToken, storeAirStarkSession, storeMockSession } from '../../auth/services/googleAuth.ts';
 
 // ── Configuración desde variables de entorno ─────────────────────────────────
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;

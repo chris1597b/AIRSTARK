@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getStoredUser } from '../services/googleAuth.ts';
+import { getStoredUser } from '../../auth/services/googleAuth.ts';
 
 interface EvaluationProps {
   onExit: () => void;
@@ -8,8 +8,8 @@ interface EvaluationProps {
 type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | 'estadisticas';
 
 import { QRCodeSVG } from 'qrcode.react';
-import { EvaluationDraft, EvaluationQuestion } from '../types/evaluation';
-import { createEvaluationSession, ApiError } from '../services/evaluationApi';
+import { EvaluationDraft, EvaluationQuestion } from '../types/evaluation.ts';
+import { createEvaluationSession, ApiError } from '../services/evaluationApi.ts';
 
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
@@ -719,8 +719,8 @@ const CodigoQRView: React.FC<{
 /* ─────────────────────────────────────────────
    Sub-vista: Estadísticas
 ───────────────────────────────────────────── */
-import { SessionSocket } from '../services/sessionSocket';
-import { Student } from '../types/evaluation';
+import { SessionSocket } from '../../../shared/lib/sessionSocket.ts';
+import { Student } from '../types/evaluation.ts';
 
 const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationDraft }> = ({ sessionId, config }) => {
   const [students, setStudents] = React.useState<Student[]>([]);

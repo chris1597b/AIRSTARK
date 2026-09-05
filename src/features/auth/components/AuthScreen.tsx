@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle, GoogleUser } from '../services/googleAuth';
-import { loginWithGoogle } from '../services/evaluationApi';
-import type { AuthenticatedUser } from '../types/evaluation';
+import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle, GoogleUser } from '../services/googleAuth.ts';
+import { loginWithGoogle } from '../../quiz/services/evaluationApi.ts';
+import type { AuthenticatedUser } from '../../quiz/types/evaluation.ts';
 
 interface AuthScreenProps {
   onAuthenticated: (user: AuthenticatedUser) => void;

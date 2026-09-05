@@ -26,7 +26,7 @@
  *   - VITE_GOOGLE_CLIENT_ID es público y puede estar en el Frontend.
  */
 
-import type { AuthenticatedUser } from '../types/evaluation';
+import type { AuthenticatedUser } from '../../quiz/types/evaluation.ts';
 
 // ── Claves de almacenamiento ─────────────────────────────────────────────────
 const AIRSTARK_USER_KEY  = 'airstark_user';

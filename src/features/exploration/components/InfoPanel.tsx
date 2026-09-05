@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { AnatomicalPart, AppMode } from '../types.ts';
-import { getClinicalContext, MedicalData, sendChatMessage } from '../services/geminiService.ts';
-import EKGMonitor from './EKGMonitor.tsx';
+import { AnatomicalPart, AppMode } from '../../../shared/types/index.ts';
+import { getClinicalContext, MedicalData, sendChatMessage } from '../../../shared/lib/geminiService.ts';
+import EKGMonitor from '../../navigation/components/EKGMonitor.tsx';
 
 interface ChatMessage {
     id: string;

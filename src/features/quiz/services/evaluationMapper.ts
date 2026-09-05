@@ -1,4 +1,4 @@
-import { EvaluationDraft, CreateSessionRequest } from '../types/evaluation';
+import { EvaluationDraft, CreateSessionRequest } from '../types/evaluation.ts';
 
 /**
  * Transforma el borrador del frontend (EvaluationDraft) 
