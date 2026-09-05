@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 
 // Backend API URL (Usa la variable de entorno de Vercel o de lo contrario asume fallback)
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";

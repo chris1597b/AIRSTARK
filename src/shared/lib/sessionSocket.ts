@@ -22,7 +22,7 @@ import {
   WsStudentAnsweredPayload, 
   WsStudentCompletedPayload, 
   WsSessionEndedPayload 
-} from '../types/evaluation';
+} from '../../features/quiz/types/evaluation.ts';
 
 type ConnectionState = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED';
 

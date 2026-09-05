@@ -42,7 +42,7 @@ export const ExcalidrawEditor: React.FC<ExcalidrawEditorProps> = ({ onClose }) =
         }
       `}</style>
       <Excalidraw
-        onExcalidrawAPI={onExcalidrawAPI}
+        excalidrawAPI={onExcalidrawAPI}
         onChange={onChange}
         initialData={{ 
            elements: initialElems,

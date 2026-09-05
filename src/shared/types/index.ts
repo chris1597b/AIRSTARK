@@ -7,6 +7,7 @@ export interface AnatomicalPart {
   normal: string;   // Not strictly used with data-surface but kept for interface compatibility
   keywords: string[];
   isInternal?: boolean;
+  ctScanUrl?: string;
 }
 
 export enum AppMode {
