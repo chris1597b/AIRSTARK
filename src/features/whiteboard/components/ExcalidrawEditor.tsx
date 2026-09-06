@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css"; // ← CRÍTICO: sin esto los íconos y layout se rompen
 import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
 
 interface ExcalidrawEditorProps {
@@ -22,7 +23,8 @@ export const ExcalidrawEditor: React.FC<ExcalidrawEditorProps> = ({ onClose }) =
   }, []);
 
   // Cargar elementos previos si los hay
-  let initialElems = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let initialElems: any[] = [];
   try {
      const saved = localStorage.getItem('excalidraw_elements');
      if (saved) initialElems = JSON.parse(saved);
