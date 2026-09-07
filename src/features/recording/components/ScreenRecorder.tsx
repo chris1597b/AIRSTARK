@@ -24,15 +24,29 @@ export const ScreenRecorder: React.FC = () => {
             const H = window.innerHeight;
             const dpr = window.devicePixelRatio || 1;
 
-            // 1. Capturar el render 3D via la API nativa de model-viewer (.toDataURL)
-            //    Esta es la forma oficial y evita el problema del buffer WebGL limpiado
+            // 1. Capturar el render 3D via la API nativa de model-viewer
             const modelViewer = document.getElementById('heart-viewer') as any;
-            let modelDataURL: string | null = null;
-            if (modelViewer && typeof modelViewer.toDataURL === 'function') {
-                modelDataURL = modelViewer.toDataURL('image/png');
+            let modelImageBlob: Blob | null = null;
+            if (modelViewer && typeof modelViewer.toBlob === 'function') {
+                // Removemos idealAspect: true para que el aspect ratio coincida exactamente con la pantalla y no se distorsione
+                modelImageBlob = await modelViewer.toBlob();
             }
 
-            // 2. Capturar la UI (DOM) en transparente con html2canvas
+            // 2. Hacer fondos transparentes temporalmente y ocultar los canvas de excalidraw (para pintarlos manual con filtro)
+            const noBgStyle = document.createElement('style');
+            noBgStyle.innerHTML = `
+                body, #root, .bg-black, .bg-gray-900 {
+                    background-color: transparent !important;
+                    background: transparent !important;
+                }
+            `;
+            document.head.appendChild(noBgStyle);
+
+            const excalidrawCanvases = Array.from(document.querySelectorAll('.excalidraw canvas')) as HTMLCanvasElement[];
+            const originalOpacities = excalidrawCanvases.map(c => c.style.opacity);
+            excalidrawCanvases.forEach(c => c.style.opacity = '0');
+
+            // 3. Capturar la UI (DOM) en transparente con html2canvas
             const domCanvas = await html2canvas(document.body, {
                 useCORS: true,
                 allowTaint: true,
@@ -43,31 +57,54 @@ export const ScreenRecorder: React.FC = () => {
                     el.tagName === 'MODEL-VIEWER' || el.id === 'heart-viewer',
             });
 
-            // 3. Componer en canvas final
+            // Restaurar fondos y opacidad
+            document.head.removeChild(noBgStyle);
+            excalidrawCanvases.forEach((c, i) => c.style.opacity = originalOpacities[i]);
+
+            // 4. Componer en canvas final
             const finalCanvas = document.createElement('canvas');
-            finalCanvas.width  = W * dpr;
+            finalCanvas.width = W * dpr;
             finalCanvas.height = H * dpr;
             const ctx = finalCanvas.getContext('2d')!;
             ctx.scale(dpr, dpr);
 
-            // Fondo negro
+            // Fondo negro (base)
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, W, H);
 
-            // Capa 1: render 3D del corazón (vía API oficial de model-viewer)
-            if (modelDataURL) {
+            // Capa 1: render 3D del corazón
+            if (modelImageBlob) {
+                const objectUrl = URL.createObjectURL(modelImageBlob);
                 await new Promise<void>((resolve) => {
                     const img = new Image();
-                    img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
-                    img.onerror = () => resolve();
-                    img.src = modelDataURL!;
+                    img.onload = () => { 
+                        ctx.drawImage(img, 0, 0, W, H); 
+                        URL.revokeObjectURL(objectUrl);
+                        resolve(); 
+                    };
+                    img.onerror = () => {
+                        URL.revokeObjectURL(objectUrl);
+                        resolve();
+                    };
+                    img.src = objectUrl;
                 });
             }
 
-            // Capa 2: UI del DOM encima
+            // Capa 2: Dibujos de Excalidraw (manualmente para aplicar el filtro de dark theme)
+            if (excalidrawCanvases.length > 0) {
+                // Excalidraw en modo oscuro usa este filtro. Lo aplicamos aquí para que los trazos se vean blancos.
+                ctx.filter = 'invert(93%) hue-rotate(180deg)';
+                excalidrawCanvases.forEach(canvas => {
+                    // Los canvas de excalidraw ya están a resolución completa, pero los dibujamos al tamaño WxH
+                    ctx.drawImage(canvas, 0, 0, W, H);
+                });
+                ctx.filter = 'none';
+            }
+
+            // Capa 3: UI del DOM encima (botones, cámara, etc)
             ctx.drawImage(domCanvas, 0, 0, W, H);
 
-            // 4. Descargar PNG
+            // 5. Descargar PNG
             const link = document.createElement('a');
             link.download = `AIRSTARK_Captura_${Date.now()}.png`;
             link.href = finalCanvas.toDataURL('image/png');
