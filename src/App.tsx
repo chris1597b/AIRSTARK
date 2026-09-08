@@ -8,9 +8,11 @@ import { getQuizQuestion } from './shared/lib/geminiService.ts';
 import { ExcalidrawEditor } from './features/whiteboard/components/ExcalidrawEditor.tsx';
 import { Evaluation } from './features/quiz/components/Evaluation.tsx';
 import { AuthScreen } from './features/auth/components/AuthScreen.tsx';
-import { getStoredUser, signOut } from './features/auth/services/googleAuth.ts';
+import { signOut } from './features/auth/services/googleAuth.ts';
 import { logout } from './features/quiz/services/evaluationApi.ts';
 import { AuthenticatedUser } from './features/quiz/types/evaluation.ts';
+import { useAppStore } from './store/useAppStore.ts';
+import { useModuleAccess } from './shared/hooks/useModuleAccess.ts';
 import "./index.css";
 
 // Extend JSX for model-viewer
@@ -42,25 +44,41 @@ const normalizeText = (text: string) => {
 };
 
 const App: React.FC = () => {
-  const [mode, setMode] = useState<AppMode>(AppMode.EXPLORE);
-  const [selectedPart, setSelectedPart] = useState<AnatomicalPart | null>(null);
+  const mode = useAppStore((s) => s.mode);
+  const setMode = useAppStore((s) => s.setMode);
+  
+  const selectedPart = useAppStore((s) => s.selectedPart);
+  const setSelectedPart = useAppStore((s) => s.setSelectedPart);
 
   // Auth State
-  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const currentUser = useAppStore((s) => s.user);
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const isAuthChecking = useAppStore((s) => s.isAuthChecking);
+  
+  const setAuthenticated = useAppStore((s) => s.setAuthenticated);
+  const setUser = useAppStore((s) => s.setUser);
+  const logoutAction = useAppStore((s) => s.logout);
+  const checkAuthOnMount = useAppStore((s) => s.checkAuthOnMount);
 
   // Quiz State
-  const [quizTarget, setQuizTarget] = useState<AnatomicalPart | null>(null);
-  const [quizQuestion, setQuizQuestion] = useState<string | null>(null);
-  const [quizStatus, setQuizStatus] = useState<'IDLE' | 'LOADING' | 'WAITING_FOR_USER' | 'CORRECT' | 'INCORRECT'>('IDLE');
+  const quizTarget = useAppStore((s) => s.quizTarget);
+  const setQuizTarget = useAppStore((s) => s.setQuizTarget);
+  
+  const quizQuestion = useAppStore((s) => s.quizQuestion);
+  const setQuizQuestion = useAppStore((s) => s.setQuizQuestion);
+  
+  const quizStatus = useAppStore((s) => s.quizStatus);
+  const setQuizStatus = useAppStore((s) => s.setQuizStatus);
+
 
   const [cameraOrbit, setCameraOrbit] = useState("0deg 75deg 105%");
   const [cameraTarget, setCameraTarget] = useState("auto");
   const [showWebcam, setShowWebcam] = useState(true);
   const [isVoiceManual, setIsVoiceManual] = useState(false);
   const [modelError, setModelError] = useState(false);
-  const [isTransparent, setIsTransparent] = useState(false);
+  const isTransparent = useAppStore((s) => s.isTransparent);
+  const toggleTransparency = useAppStore((s) => s.toggleTransparency);
+  const setIsTransparent = useAppStore((s) => s.setIsTransparent);
   const [modelSrc, setModelSrc] = useState<string>('/corazonfilial.glb');
   const [lockedOrbit, setLockedOrbit] = useState<{ theta: number, phi: number } | null>(null);
   
@@ -91,13 +109,8 @@ const App: React.FC = () => {
 
   // Restore session on mount (page reload resilience)
   useEffect(() => {
-    const stored = getStoredUser();
-    if (stored) {
-      setCurrentUser(stored);
-      setIsAuthenticated(true);
-    }
-    setIsAuthChecking(false);
-  }, []);
+    checkAuthOnMount();
+  }, [checkAuthOnMount]);
 
   // Handle Model Loading Events
   // Runs whenever isAuthenticated changes (since the viewer is rendered conditionally on isAuthenticated)
@@ -128,16 +141,16 @@ const App: React.FC = () => {
   }, [isAuthenticated]);
 
   const handleAuthenticated = (user: AuthenticatedUser) => {
-    setCurrentUser(user);
-    setIsAuthenticated(true);
+    setUser(user);
+    setAuthenticated(true);
     // Restart model loading state
     setIsLoading(true);
     setLoadingProgress(0);
   };
 
   const handleGuest = () => {
-    setCurrentUser(null);
-    setIsAuthenticated(true); // guest access allowed
+    setUser(null);
+    setAuthenticated(true); // guest access allowed
     // Restart model loading state
     setIsLoading(true);
     setLoadingProgress(0);
@@ -145,8 +158,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     signOut(currentUser?.email);
-    setCurrentUser(null);
-    setIsAuthenticated(false);
+    logoutAction();
     await logout();
   };
 
@@ -327,7 +339,7 @@ const App: React.FC = () => {
   // Function specifically to toggle transparency with loading feedback
   const handleToggleTransparency = () => {
     setIsTransparencyLoading(true);
-    setIsTransparent(!isTransparent);
+    toggleTransparency();
   };
   const toggleWebcam = () => setShowWebcam(!showWebcam);
   const toggleVoice = () => setIsVoiceManual(!isVoiceManual);
@@ -340,6 +352,12 @@ const App: React.FC = () => {
   if (isAuthChecking) {
     return <div className="w-screen h-screen bg-gray-900" />;
   }
+
+  // Module Access Stubs
+  const hasExploreAccess = useModuleAccess('exploration');
+  const hasQuizAccess = useModuleAccess('quiz');
+  const hasNavigationAccess = useModuleAccess('navigation');
+  // const hasClinicalCaseAccess = useModuleAccess('clinical-case'); // Not explicitly matched to a mode yet, but available
 
   if (!isAuthenticated) {
     return (

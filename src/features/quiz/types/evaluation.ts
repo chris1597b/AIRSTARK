@@ -32,6 +32,7 @@ export interface AuthenticatedUser {
   name: string;
   picture: string;
   given_name?: string; // Puede no estar si el Backend no lo incluye
+  role?: 'student' | 'teacher';
 }
 
 /**

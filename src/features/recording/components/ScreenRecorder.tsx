@@ -78,7 +78,13 @@ export const ScreenRecorder: React.FC = () => {
                 await new Promise<void>((resolve) => {
                     const img = new Image();
                     img.onload = () => { 
-                        ctx.drawImage(img, 0, 0, W, H); 
+                        ctx.save();
+                        // Reset scale to avoid DPR double-scaling issues with the native toBlob image
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        // Draw exactly to the physical bounds of the canvas
+                        ctx.drawImage(img, 0, 0, finalCanvas.width, finalCanvas.height);
+                        ctx.restore();
+
                         URL.revokeObjectURL(objectUrl);
                         resolve(); 
                     };
