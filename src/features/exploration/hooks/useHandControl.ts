@@ -33,7 +33,7 @@ export const useHandControl = (
   const gestureModeRef = useRef<string>('IDLE');
 
   useEffect(() => {
-    if (!active) {
+    if (!active || !navigator.mediaDevices?.getUserMedia) {
       setGestureState({ mode: 'IDLE', active: false });
       gestureModeRef.current = 'IDLE';
       return;

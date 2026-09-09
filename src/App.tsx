@@ -60,6 +60,11 @@ const App: React.FC = () => {
   const logoutAction = useAppStore((s) => s.logout);
   const checkAuthOnMount = useAppStore((s) => s.checkAuthOnMount);
 
+  // Feature Support State
+  const cameraSupported = useAppStore((s) => s.camera);
+  const speechSupported = useAppStore((s) => s.speechRecognition);
+  const initFeatureSupport = useAppStore((s) => s.initFeatureSupport);
+
   // Quiz State
   const quizTarget = useAppStore((s) => s.quizTarget);
   const setQuizTarget = useAppStore((s) => s.setQuizTarget);
@@ -92,25 +97,26 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Custom Hook handles MediaPipe logic (only active if user is authenticated and webcam is shown)
-  const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef, isAuthenticated && showWebcam);
+  // Custom Hook handles MediaPipe logic (only active if user is authenticated, camera supported, and webcam shown)
+  const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef, isAuthenticated && showWebcam && cameraSupported);
 
   // Sync React camera-orbit state only when gesture MODE changes (not every frame).
   // The actual per-frame orbit updates are now written directly to the DOM inside
   // useHandControl via requestAnimationFrame, bypassing React state for zero-lag rendering.
   useEffect(() => {
-    if (!showWebcam || !isAuthenticated) return;
+    if (!showWebcam || !isAuthenticated || !cameraSupported) return;
     if (gestureState.mode === 'IDLE' || gestureState.mode === 'VOICE' || gestureState.mode === 'LOCKED') {
       // When gesture stops, sync React state to the last value the hook wrote
       // so subsequent camera-controls clicks are consistent.
       setCameraOrbit(orbitOutput.current);
     }
-  }, [gestureState.mode, showWebcam, isAuthenticated]);
+  }, [gestureState.mode, showWebcam, isAuthenticated, cameraSupported]);
 
-  // Restore session on mount (page reload resilience)
+  // Restore session & detect feature support on mount
   useEffect(() => {
     checkAuthOnMount();
-  }, [checkAuthOnMount]);
+    initFeatureSupport();
+  }, [checkAuthOnMount, initFeatureSupport]);
 
   // Handle Model Loading Events
   // Runs whenever isAuthenticated changes (since the viewer is rendered conditionally on isAuthenticated)
@@ -539,16 +545,26 @@ const App: React.FC = () => {
 
           {/* Manual Voice Toggle & Hotspot List Dropdown (Hidden in DRAW) */}
           <div className={`relative transition-opacity ${mode === AppMode.DRAW ? 'hidden' : 'opacity-100'}`}>
-            <button
-              onClick={toggleVoice}
-              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${isVoiceActive ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
-              title="Activar Voz"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-            </button>
+            {speechSupported ? (
+              <button
+                onClick={toggleVoice}
+                className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${isVoiceActive ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
+                title="Activar Voz"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+              </button>
+            ) : (
+              <div
+                className="px-3 py-1.5 rounded-full bg-gray-800/80 border border-gray-700 text-gray-400 text-xs font-medium flex items-center gap-1.5 cursor-not-allowed select-none"
+                title="El reconocimiento de voz requiere Chrome o Edge"
+              >
+                <svg className="w-3.5 h-3.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                <span>Voz (Chrome/Edge)</span>
+              </div>
+            )}
 
             {/* Hotspot Dropdown List */}
-            {isVoiceActive && (
+            {speechSupported && isVoiceActive && (
               <div className="absolute top-12 right-0 w-64 max-h-[50vh] bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[100]">
                 <div className="p-4 border-b border-white/5 bg-white/5">
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
@@ -583,14 +599,16 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Webcam Toggle */}
-          <button
-            onClick={toggleWebcam}
-            className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${showWebcam ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
-            title="Gestos de Mano"
-          >
-            ✋
-          </button>
+          {/* Webcam Toggle (Hidden if camera is not supported) */}
+          {cameraSupported && (
+            <button
+              onClick={toggleWebcam}
+              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${showWebcam ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
+              title="Gestos de Mano"
+            >
+              ✋
+            </button>
+          )}
         </div>
       </div>
 
@@ -610,38 +628,40 @@ const App: React.FC = () => {
       {/* Voice Control Component (Headless but functional) */}
       <VoiceControl isActive={isVoiceActive} onCommand={handleVoiceCommand} />
 
-      {/* Gesture Status & Webcam Feed */}
-      <div className={`absolute bottom-6 right-6 transition-all duration-500 ease-in-out z-30 ${showWebcam ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
-        <div className={`relative rounded-lg overflow-hidden border-2 shadow-2xl w-64 h-48 bg-black transition-colors duration-300 ${gestureState.mode === 'ROTATING' ? 'border-teal-400' :
-          gestureState.mode === 'LOCKED' ? 'border-red-500' :
-            gestureState.mode === 'VOICE' ? 'border-pink-500' :
-              gestureState.mode === 'ZOOMING' ? 'border-blue-400' : 'border-gray-600'
-          }`}>
-          <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover transform -scale-x-100" playsInline></video>
-          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full transform -scale-x-100"></canvas>
+      {/* Gesture Status & Webcam Feed (Only if camera is supported) */}
+      {cameraSupported && (
+        <div className={`absolute bottom-6 right-6 transition-all duration-500 ease-in-out z-30 ${showWebcam ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
+          <div className={`relative rounded-lg overflow-hidden border-2 shadow-2xl w-64 h-48 bg-black transition-colors duration-300 ${gestureState.mode === 'ROTATING' ? 'border-teal-400' :
+            gestureState.mode === 'LOCKED' ? 'border-red-500' :
+              gestureState.mode === 'VOICE' ? 'border-pink-500' :
+                gestureState.mode === 'ZOOMING' ? 'border-blue-400' : 'border-gray-600'
+            }`}>
+            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover transform -scale-x-100" playsInline></video>
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full transform -scale-x-100"></canvas>
 
-          {/* Status Text */}
-          <div className="absolute bottom-0 w-full bg-black/60 backdrop-blur-sm p-2 text-center">
-            <p className="text-xs font-bold uppercase tracking-widest text-white">
-              {gestureState.mode === 'IDLE' ? 'Esperando Mano...' :
-                gestureState.mode === 'ROTATING' ? 'Rotando' :
-                  gestureState.mode === 'ZOOMING' ? 'Zoom' :
-                    gestureState.mode === 'LOCKED' ? 'Pausado' :
-                      gestureState.mode === 'VOICE' ? 'Voz' : gestureState.mode}
-            </p>
+            {/* Status Text */}
+            <div className="absolute bottom-0 w-full bg-black/60 backdrop-blur-sm p-2 text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-white">
+                {gestureState.mode === 'IDLE' ? 'Esperando Mano...' :
+                  gestureState.mode === 'ROTATING' ? 'Rotando' :
+                    gestureState.mode === 'ZOOMING' ? 'Zoom' :
+                      gestureState.mode === 'LOCKED' ? 'Pausado' :
+                        gestureState.mode === 'VOICE' ? 'Voz' : gestureState.mode}
+              </p>
+            </div>
           </div>
+
+          {/* Gesture Legend */}
+          {showWebcam && (
+            <div className="mt-2 bg-black/50 backdrop-blur rounded p-2 text-xs text-gray-300 grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400"></span> Mano (Rotar)</div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Puño (Parar)</div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400"></span> Índice (Zoom)</div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-500"></span> Shaka (Voz)</div>
+            </div>
+          )}
         </div>
-
-        {/* Gesture Legend */}
-        {showWebcam && (
-          <div className="mt-2 bg-black/50 backdrop-blur rounded p-2 text-xs text-gray-300 grid grid-cols-2 gap-2">
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400"></span> Mano (Rotar)</div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Puño (Parar)</div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400"></span> Índice (Zoom)</div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-500"></span> Shaka (Voz)</div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Excalidraw Overlay Toggle Button (Bottom-Left shifted up) */}
       <div className="absolute bottom-28 left-6 z-50">

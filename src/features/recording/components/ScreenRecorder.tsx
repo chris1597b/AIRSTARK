@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
+import { useAppStore } from '../../../store/useAppStore.ts';
 
 export const ScreenRecorder: React.FC = () => {
+    const mediaRecorderSupported = useAppStore((s) => s.mediaRecorder);
+    const cameraSupported = useAppStore((s) => s.camera);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const [isTakingShot, setIsTakingShot] = useState(false);
@@ -125,6 +128,11 @@ export const ScreenRecorder: React.FC = () => {
 
     // --- Grabación de Pantalla ---
     const startRecording = async () => {
+        if (!mediaRecorderSupported || typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+            alert("Tu navegador no soporta grabación de pantalla (MediaRecorder API).");
+            return;
+        }
+
         try {
             const screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: { frameRate: { ideal: 30 } },
@@ -132,10 +140,12 @@ export const ScreenRecorder: React.FC = () => {
             });
 
             let micStream: MediaStream | null = null;
-            try {
-                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            } catch (e) {
-                console.warn("Microphone access denied or not available", e);
+            if (cameraSupported && navigator.mediaDevices?.getUserMedia) {
+                try {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } catch (e) {
+                    console.warn("Microphone access denied or not available", e);
+                }
             }
 
             const tracks = [...screenStream.getVideoTracks()];
@@ -250,19 +260,21 @@ export const ScreenRecorder: React.FC = () => {
                 Capturar
             </button>
 
-            {/* Botón Grabar Pantalla */}
-            <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`
-                    flex items-center justify-center gap-2 px-4 py-2 rounded-full transition-all duration-300 font-bold text-sm shadow-lg
-                    ${isRecording
-                        ? 'bg-red-600 text-white hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.4)]'
-                        : 'bg-white/10 text-white hover:bg-white/20 border border-white/20 hover:border-white/40'}
-                `}
-            >
-                <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white' : 'bg-red-600'} transition-all`}></div>
-                {isRecording ? 'Detener' : 'Grabar Pantalla'}
-            </button>
+            {/* Botón Grabar Pantalla (Solo si MediaRecorder es soportado) */}
+            {mediaRecorderSupported && (
+                <button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`
+                        flex items-center justify-center gap-2 px-4 py-2 rounded-full transition-all duration-300 font-bold text-sm shadow-lg
+                        ${isRecording
+                            ? 'bg-red-600 text-white hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.4)]'
+                            : 'bg-white/10 text-white hover:bg-white/20 border border-white/20 hover:border-white/40'}
+                    `}
+                >
+                    <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white' : 'bg-red-600'} transition-all`}></div>
+                    {isRecording ? 'Detener' : 'Grabar Pantalla'}
+                </button>
+            )}
         </div>
     );
 };

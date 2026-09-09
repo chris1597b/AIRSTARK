@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useAppStore } from '../../../store/useAppStore.ts';
 
 interface VoiceControlProps {
   isActive: boolean;
@@ -6,6 +7,7 @@ interface VoiceControlProps {
 }
 
 export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand }) => {
+  const speechSupported = useAppStore((s) => s.speechRecognition);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const onCommandRef = useRef(onCommand);
@@ -14,6 +16,8 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand 
   onCommandRef.current = onCommand;
 
   useEffect(() => {
+    if (!speechSupported) return;
+
     // Browser compatibility check
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -84,7 +88,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({ isActive, onCommand 
       }
   }, [isActive]);
 
-  if (!isActive) return null;
+  if (!speechSupported || !isActive) return null;
 
   return (
     <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
