@@ -22,7 +22,7 @@ export const useHandControl = (
   active: boolean
 ) => {
   const [gestureState, setGestureState] = useState<{ mode: string, active: boolean }>({ mode: 'IDLE', active: false });
-  
+
   // Physics State (Refs to avoid re-renders on every frame)
   const camState = useRef<CameraState>({ theta: 0, phi: Math.PI / 2, radius: 100 });
   const velocity = useRef({ theta: 0, phi: 0, zoom: 0 });
@@ -80,17 +80,17 @@ export const useHandControl = (
 
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
-        
+
         // Draw hands
         window.drawConnectors(ctx, landmarks, window.HAND_CONNECTIONS, { color: '#ef4444', lineWidth: 2 });
         window.drawLandmarks(ctx, landmarks, { color: '#ffffff', lineWidth: 1, radius: 2 });
 
         // Gesture Logic
         const isFingerExtended = (idx: number, pipIdx: number) => {
-            const wrist = landmarks[0];
-            const tip = landmarks[idx];
-            const pip = landmarks[pipIdx];
-            return Math.hypot(tip.x - wrist.x, tip.y - wrist.y) > Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
+          const wrist = landmarks[0];
+          const tip = landmarks[idx];
+          const pip = landmarks[pipIdx];
+          return Math.hypot(tip.x - wrist.x, tip.y - wrist.y) > Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
         };
 
         const thumbExt = isFingerExtended(4, 2);
@@ -116,34 +116,34 @@ export const useHandControl = (
         }
         // 3. Pinch/Index (Zoom)
         else if (indexExt && extendedCount === 1) {
-            gestureModeRef.current = 'ZOOMING';
-            setGestureState({ mode: 'ZOOMING', active: true });
-            const dPinch = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
-            const zoomTarget = 220 - (dPinch * 600); 
-            velocity.current.zoom = zoomTarget;
-            velocity.current.theta = 0;
-            velocity.current.phi = 0;
+          gestureModeRef.current = 'ZOOMING';
+          setGestureState({ mode: 'ZOOMING', active: true });
+          const dPinch = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+          const zoomTarget = 220 - (dPinch * 600);
+          velocity.current.zoom = zoomTarget;
+          velocity.current.theta = 0;
+          velocity.current.phi = 0;
         }
         // 4. Open Palm (Rotate)
         else if (extendedCount >= 3) {
-            gestureModeRef.current = 'ROTATING';
-            setGestureState({ mode: 'ROTATING', active: true });
-            const handX = 1.0 - landmarks[9].x; // Mirror
-            const handY = landmarks[9].y;
-            
-            let dx = (handX - 0.5);
-            let dy = (handY - 0.5);
-            
-            // Smaller deadzone for more continuous movement
-            if (Math.abs(dx) < 0.06) dx = 0;
-            if (Math.abs(dy) < 0.06) dy = 0;
+          gestureModeRef.current = 'ROTATING';
+          setGestureState({ mode: 'ROTATING', active: true });
+          const handX = 1.0 - landmarks[9].x; // Mirror
+          const handY = landmarks[9].y;
 
-            // Slightly higher speed coefficients for responsive feel
-            velocity.current.theta = -dx * 0.18;
-            velocity.current.phi = -dy * 0.12;
+          let dx = (handX - 0.5);
+          let dy = (handY - 0.5);
+
+          // Smaller deadzone for more continuous movement
+          if (Math.abs(dx) < 0.06) dx = 0;
+          if (Math.abs(dy) < 0.06) dy = 0;
+
+          // Slightly higher speed coefficients for responsive feel
+          velocity.current.theta = -dx * 0.18;
+          velocity.current.phi = -dy * 0.12;
         } else {
-            gestureModeRef.current = 'IDLE';
-            setGestureState({ mode: 'IDLE', active: true });
+          gestureModeRef.current = 'IDLE';
+          setGestureState({ mode: 'IDLE', active: true });
         }
 
       } else {
@@ -156,36 +156,36 @@ export const useHandControl = (
 
     // Initialize MediaPipe
     const initMediaPipe = async () => {
-        if (!window.Hands) {
-            setTimeout(initMediaPipe, 500);
-            return;
-        }
-        
-        hands = new window.Hands({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.6
-        });
-        hands.onResults(onResults);
+      if (!window.Hands) {
+        setTimeout(initMediaPipe, 500);
+        return;
+      }
 
-        if (videoRef.current) {
-            camera = new window.Camera(videoRef.current, {
-                onFrame: async () => { 
-                    try {
-                        if (videoRef.current && videoRef.current.videoWidth > 0) {
-                            await hands.send({ image: videoRef.current }); 
-                        }
-                    } catch (e) {
-                        console.warn("MediaPipe WebGL send error (ignorado):", e);
-                    }
-                },
-                width: 320,
-                height: 240
-            });
-            camera.start();
-        }
+      hands = new window.Hands({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+      });
+      hands.onResults(onResults);
+
+      if (videoRef.current) {
+        camera = new window.Camera(videoRef.current, {
+          onFrame: async () => {
+            try {
+              if (videoRef.current && videoRef.current.videoWidth > 0) {
+                await hands.send({ image: videoRef.current });
+              }
+            } catch (e) {
+              console.warn("MediaPipe WebGL send error (ignorado):", e);
+            }
+          },
+          width: 320,
+          height: 240
+        });
+        camera.start();
+      }
     };
 
     initMediaPipe();
@@ -196,44 +196,44 @@ export const useHandControl = (
     // Higher lerp factor (0.28) makes velocity feel snappy and eliminates the
     // "stopping" sensation that was caused by the previous 0.15 factor.
     const physicsLoop = () => {
-        const LERP = gestureModeRef.current === 'ROTATING' ? 0.28 : 0.18;
+      const LERP = gestureModeRef.current === 'ROTATING' ? 0.28 : 0.18;
 
-        smoothVelocity.current.theta += (velocity.current.theta - smoothVelocity.current.theta) * LERP;
-        smoothVelocity.current.phi   += (velocity.current.phi   - smoothVelocity.current.phi)   * LERP;
+      smoothVelocity.current.theta += (velocity.current.theta - smoothVelocity.current.theta) * LERP;
+      smoothVelocity.current.phi += (velocity.current.phi - smoothVelocity.current.phi) * LERP;
 
-        camState.current.theta += smoothVelocity.current.theta;
-        camState.current.phi   += smoothVelocity.current.phi;
-        
-        // Clamp Phi (Polar angle) to avoid flipping
-        camState.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, camState.current.phi));
+      camState.current.theta += smoothVelocity.current.theta;
+      camState.current.phi += smoothVelocity.current.phi;
 
-        // Smooth Zoom
-        if (velocity.current.zoom !== 0) {
-            camState.current.radius += (velocity.current.zoom - camState.current.radius) * 0.12;
+      // Clamp Phi (Polar angle) to avoid flipping
+      camState.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, camState.current.phi));
+
+      // Smooth Zoom
+      if (velocity.current.zoom !== 0) {
+        camState.current.radius += (velocity.current.zoom - camState.current.radius) * 0.12;
+      }
+      camState.current.radius = Math.max(2, Math.min(250, camState.current.radius));
+
+      const newOrbit = `${camState.current.theta}rad ${camState.current.phi}rad ${camState.current.radius}%`;
+      orbitOutput.current = newOrbit;
+
+      // ── Direct DOM write bypass ──────────────────────────────────────────
+      // Writing directly to model-viewer's camera-orbit attribute skips the
+      // React state cycle entirely, giving sub-frame latency updates.
+      if (gestureModeRef.current !== 'IDLE' && gestureModeRef.current !== 'VOICE' && gestureModeRef.current !== 'LOCKED') {
+        const viewer = document.getElementById('heart-viewer') as any;
+        if (viewer) {
+          viewer.setAttribute('camera-orbit', newOrbit);
         }
-        camState.current.radius = Math.max(2, Math.min(250, camState.current.radius));
+      }
 
-        const newOrbit = `${camState.current.theta}rad ${camState.current.phi}rad ${camState.current.radius}%`;
-        orbitOutput.current = newOrbit;
-
-        // ── Direct DOM write bypass ──────────────────────────────────────────
-        // Writing directly to model-viewer's camera-orbit attribute skips the
-        // React state cycle entirely, giving sub-frame latency updates.
-        if (gestureModeRef.current !== 'IDLE' && gestureModeRef.current !== 'VOICE' && gestureModeRef.current !== 'LOCKED') {
-          const viewer = document.getElementById('heart-viewer') as any;
-          if (viewer) {
-            viewer.setAttribute('camera-orbit', newOrbit);
-          }
-        }
-
-        rafId = requestAnimationFrame(physicsLoop);
+      rafId = requestAnimationFrame(physicsLoop);
     };
     rafId = requestAnimationFrame(physicsLoop);
 
     return () => {
-        if (camera) camera.stop();
-        if (hands) hands.close();
-        cancelAnimationFrame(rafId);
+      if (camera) camera.stop();
+      if (hands) hands.close();
+      cancelAnimationFrame(rafId);
     };
   }, [videoRef, canvasRef, active]);
 
