@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx';
 import { ANATOMY_DATA, AnatomicalPart, AppMode } from './shared/types/index.ts';
 import { useHandControl } from './features/exploration/hooks/useHandControl.ts';
 import { InfoPanel } from './features/exploration/components/InfoPanel.tsx';
@@ -377,7 +378,8 @@ const App: React.FC = () => {
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans">
 
-      {/* 3D Viewer */}
+      {/* 3D Viewer — Error Boundary */}
+      <ErrorBoundary label="Visor 3D">
       <model-viewer
         id="heart-viewer"
         ref={modelViewerRef}
@@ -443,6 +445,7 @@ const App: React.FC = () => {
           );
         })}
       </model-viewer>
+      </ErrorBoundary>
 
       {/* Error Message if Model Fails */}
       {modelError && !isLoading && (
@@ -612,17 +615,19 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Info Sidebar (Se oculta durante la Pizarra para evitar superposición) */}
+      {/* Info Sidebar (Se oculta durante la Pizarra para evitar superposición) — Error Boundary */}
       {mode !== AppMode.DRAW && (
-        <InfoPanel
-          selectedPart={selectedPart}
-          mode={mode}
-          onClose={handleCloseInfo}
-          quizQuestion={quizQuestion}
-          quizStatus={quizStatus}
-          onNextQuestion={startNewQuizRound}
-          correctAnswerName={quizTarget?.label}
-        />
+        <ErrorBoundary label="Panel de IA">
+          <InfoPanel
+            selectedPart={selectedPart}
+            mode={mode}
+            onClose={handleCloseInfo}
+            quizQuestion={quizQuestion}
+            quizStatus={quizStatus}
+            onNextQuestion={startNewQuizRound}
+            correctAnswerName={quizTarget?.label}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Voice Control Component (Headless but functional) */}
@@ -687,9 +692,11 @@ const App: React.FC = () => {
         </button>
       </div>
 
-      {/* Excalidraw Editor Overlay */}
+      {/* Excalidraw Editor Overlay — Error Boundary */}
       {mode === AppMode.DRAW && (
-        <ExcalidrawEditor onClose={() => setMode(AppMode.EXPLORE)} />
+        <ErrorBoundary label="Pizarra (Excalidraw)">
+          <ExcalidrawEditor onClose={() => setMode(AppMode.EXPLORE)} />
+        </ErrorBoundary>
       )}
 
       {/* Transparency transition loader Overlay */}
