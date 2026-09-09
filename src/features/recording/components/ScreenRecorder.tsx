@@ -77,7 +77,7 @@ export const ScreenRecorder: React.FC = () => {
                 const objectUrl = URL.createObjectURL(modelImageBlob);
                 await new Promise<void>((resolve) => {
                     const img = new Image();
-                    img.onload = () => { 
+                    img.onload = () => {
                         ctx.save();
                         // Reset scale to avoid DPR double-scaling issues with the native toBlob image
                         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -86,7 +86,7 @@ export const ScreenRecorder: React.FC = () => {
                         ctx.restore();
 
                         URL.revokeObjectURL(objectUrl);
-                        resolve(); 
+                        resolve();
                     };
                     img.onerror = () => {
                         URL.revokeObjectURL(objectUrl);

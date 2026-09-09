@@ -26,9 +26,9 @@ export const ExcalidrawEditor: React.FC<ExcalidrawEditorProps> = ({ onClose }) =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let initialElems: any[] = [];
   try {
-     const saved = localStorage.getItem('excalidraw_elements');
-     if (saved) initialElems = JSON.parse(saved);
-  } catch(e){}
+    const saved = localStorage.getItem('excalidraw_elements');
+    if (saved) initialElems = JSON.parse(saved);
+  } catch (e) { }
 
   return (
     <div className="absolute inset-0 z-40 pointer-events-auto" style={{ width: "100%", height: "100%" }}>
@@ -46,13 +46,13 @@ export const ExcalidrawEditor: React.FC<ExcalidrawEditorProps> = ({ onClose }) =
       <Excalidraw
         excalidrawAPI={onExcalidrawAPI}
         onChange={onChange}
-        initialData={{ 
-           elements: initialElems,
-           appState: { viewBackgroundColor: "transparent" }
+        initialData={{
+          elements: initialElems,
+          appState: { viewBackgroundColor: "transparent" }
         }}
         theme="dark"
         // Habilitamos el grid mode si es útil, pero para anotaciones encima del 3D mejor limpio.
-        gridModeEnabled={false} 
+        gridModeEnabled={false}
         UIOptions={{
           canvasActions: {
             loadScene: false,
