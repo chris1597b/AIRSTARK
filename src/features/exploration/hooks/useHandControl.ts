@@ -22,6 +22,7 @@ export const useHandControl = (
   active: boolean
 ) => {
   const [gestureState, setGestureState] = useState<{ mode: string, active: boolean }>({ mode: 'IDLE', active: false });
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   // Physics State (Refs to avoid re-renders on every frame)
   const camState = useRef<CameraState>({ theta: 0, phi: Math.PI / 2, radius: 100 });
@@ -184,7 +185,12 @@ export const useHandControl = (
           width: 320,
           height: 240
         });
-        camera.start();
+        try {
+          camera.start();
+        } catch (e) {
+          console.error('useHandControl: fallo al iniciar cámara', e);
+          setCameraError('Error al iniciar cámara');
+        }
       }
     };
 
