@@ -15,13 +15,29 @@ export interface MedicalData {
   pearl: string;        // High yield fact
 }
 
+const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 15000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error("La solicitud tardó demasiado, por favor intenta de nuevo.");
+    }
+    throw error;
+  }
+};
+
 // Función auxiliar para llamar directamente en caso de que el backend falle (Vercel)
 const callGeminiDirectly = async (prompt: string, systemInstruction: string, forceJson: boolean): Promise<string> => {
   if (!FALLBACK_API_KEY) throw new Error("No hay API Key de respaldo configurada (VITE_API_KEY en Vercel).");
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${FALLBACK_API_KEY}`;
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -69,8 +85,7 @@ export const getClinicalContext = async (partName: string): Promise<string> => {
   const systemInstruction = `Eres un profesor experto en cardiología. Responde siempre en formato JSON válido.`;
 
   try {
-    // 1. Intentar siempre el backend primero por seguridad
-    const response = await fetch(`${BACKEND_URL}/api/chat`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, systemInstruction, forceJson: true }),
@@ -81,23 +96,13 @@ export const getClinicalContext = async (partName: string): Promise<string> => {
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || JSON.stringify(result.data);
 
-  } catch (error) {
-    console.warn("Backend no disponible. Tratando conexión directa con Gemini de respaldo...", error);
-    try {
-      // 2. Si el backend falla (ej. estamos en Vercel y el Node server no está montado), intentar directo:
-      const resultText = await callGeminiDirectly(prompt, systemInstruction, true);
-      return resultText;
-    } catch (directError) {
-      console.error("Gemini Direct Error:", directError);
-      return JSON.stringify({
-        physiology: "Error de conexión con el Asistente IA.",
-        pathology: "Verifica que VITE_API_KEY esté configurada en Vercel.",
-        symptoms: "El backend local no está siendo alcanzado.",
-        diagnosis: "Vercel no puede comunicarse con localhost:3001",
-        treatment: "Asegúrate de configurar VITE_API_KEY en las variables de entorno de Vercel.",
-        pearl: "El modo fallback directo ha fallado."
-      });
-    }
+  } catch (error: any) {
+    console.warn("Backend no disponible. Tratando conexión directa con Gemini de respaldo...", error.message);
+    // Si fue un timeout del backend, abortar de inmediato para no hacer esperar al usuario de nuevo
+    if (error.message.includes('tardó demasiado')) throw error;
+    
+    // 2. Si el backend falla, intentar directo:
+    return await callGeminiDirectly(prompt, systemInstruction, true);
   }
 };
 
@@ -113,7 +118,7 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
   const systemInstruction = `Eres un profesor de medicina que crea casos clínicos desafiantes.`;
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/chat`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
@@ -124,14 +129,10 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Identifica la estructura asociada con esta área basándote en la anatomía.";
 
-  } catch (error) {
-    console.warn("Backend no disponible. Fallback directo a Gemini para Quiz...", error);
-    try {
-      return await callGeminiDirectly(prompt, systemInstruction, false);
-    } catch (directError) {
-      console.error("Quiz Error:", directError);
-      return "Hubo un error al generar la pregunta. Verifica la configuración de Vercel y tu API Key.";
-    }
+  } catch (error: any) {
+    console.warn("Backend no disponible. Fallback directo a Gemini para Quiz...", error.message);
+    if (error.message.includes('tardó demasiado')) throw error;
+    return await callGeminiDirectly(prompt, systemInstruction, false);
   }
 };
 
@@ -142,7 +143,7 @@ export const sendChatMessage = async (partName: string, message: string, history
   const systemInstruction = `Eres un asistente médico experto de IA, especializado en cardiología. Tu objetivo es proporcionar información científica validada, precisa y educativa sobre la estructura anatómica seleccionada: "${partName}". Responde de forma profesional, como si fueras un tutor clínico. Si el usuario hace preguntas fuera del ámbito médico, declina responder cortésmente recordando tu rol.`;
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/chat`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
@@ -152,13 +153,9 @@ export const sendChatMessage = async (partName: string, message: string, history
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Sin respuesta";
-  } catch (error) {
-    console.warn("Backend no disponible. Fallback directo a Gemini para Chat...", error);
-    try {
-      return await callGeminiDirectly(prompt, systemInstruction, false);
-    } catch (directError) {
-      console.error("Chat Error:", directError);
-      return "Hubo un error de conexión con el Asistente IA. Verifica tu configuración.";
-    }
+  } catch (error: any) {
+    console.warn("Backend no disponible. Fallback directo a Gemini para Chat...", error.message);
+    if (error.message.includes('tardó demasiado')) throw error;
+    return await callGeminiDirectly(prompt, systemInstruction, false);
   }
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AnatomicalPart, AppMode } from '../../../shared/types/index.ts';
+import { AnatomicalPart, AppMode, AsyncState } from '../../../shared/types/index.ts';
 import { getClinicalContext, MedicalData, sendChatMessage } from '../../../shared/lib/geminiService.ts';
 import EKGMonitor from '../../navigation/components/EKGMonitor.tsx';
 
@@ -18,6 +18,7 @@ interface InfoPanelProps {
     quizStatus?: 'IDLE' | 'LOADING' | 'WAITING_FOR_USER' | 'CORRECT' | 'INCORRECT';
     onNextQuestion?: () => void;
     correctAnswerName?: string;
+    quizLoadState?: AsyncState<void>;
 }
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({
@@ -27,11 +28,12 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     quizQuestion,
     quizStatus,
     onNextQuestion,
-    correctAnswerName
+    correctAnswerName,
+    quizLoadState
 }) => {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState('');
-    const [isChatLoading, setIsChatLoading] = useState(false);
+    const [chatState, setChatState] = useState<AsyncState<void>>({ status: 'idle' });
     const [isMinimized, setIsMinimized] = useState(false);
 
     // Auto-expand panel when relevant content changes (new selection, new quiz question, or mode switch)
@@ -55,22 +57,35 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!chatInput.trim() || isChatLoading || !selectedPart) return;
+        if (!chatInput.trim() || chatState.status === 'loading' || !selectedPart) return;
 
         const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: chatInput.trim() };
         setChatMessages(prev => [...prev, userMsg]);
         setChatInput('');
-        setIsChatLoading(true);
+        setChatState({ status: 'loading' });
 
         try {
             const responseText = await sendChatMessage(selectedPart.label, userMsg.text, chatMessages.slice(-5));
             const aiMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'ai', text: responseText };
             setChatMessages(prev => [...prev, aiMsg]);
-        } catch (error) {
-            const errorMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'ai', text: "Error de conexión. Por favor, intenta nuevamente." };
-            setChatMessages(prev => [...prev, errorMsg]);
-        } finally {
-            setIsChatLoading(false);
+            setChatState({ status: 'success', data: undefined });
+        } catch (error: any) {
+            setChatState({ status: 'error', message: error.message || "Error de conexión." });
+        }
+    };
+
+    const handleRetryChat = async () => {
+        const lastMsg = chatMessages[chatMessages.length - 1];
+        if (!lastMsg || lastMsg.role !== 'user' || !selectedPart) return;
+        
+        setChatState({ status: 'loading' });
+        try {
+            const responseText = await sendChatMessage(selectedPart.label, lastMsg.text, chatMessages.slice(-6, -1));
+            const aiMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'ai', text: responseText };
+            setChatMessages(prev => [...prev, aiMsg]);
+            setChatState({ status: 'success', data: undefined });
+        } catch (error: any) {
+            setChatState({ status: 'error', message: error.message || "Error de conexión." });
         }
     };
 
@@ -211,7 +226,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                                             </div>
                                         </div>
                                     ))}
-                                    {isChatLoading && (
+                                    {chatState.status === 'loading' && (
                                         <div className="flex justify-start">
                                             <div className="bg-gray-800 text-gray-400 border border-gray-700 rounded-xl rounded-tl-sm p-3 text-sm flex items-center gap-2">
                                                 <span className="text-xs italic">Analizando información médica</span>
@@ -220,6 +235,19 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                                                     <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-100"></span>
                                                     <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-200"></span>
                                                 </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {chatState.status === 'error' && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-red-900/20 text-red-400 border border-red-800/50 rounded-xl rounded-tl-sm p-3 text-sm flex flex-col gap-2">
+                                                <span className="text-xs italic flex items-center gap-2">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    {chatState.message}
+                                                </span>
+                                                <button onClick={handleRetryChat} className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 py-1 px-3 rounded-lg border border-red-500/30 transition-colors self-start">
+                                                    Reintentar
+                                                </button>
                                             </div>
                                         </div>
                                     )}
@@ -235,7 +263,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                                     />
                                     <button 
                                         type="submit" 
-                                        disabled={!chatInput.trim() || isChatLoading}
+                                        disabled={!chatInput.trim() || chatState.status === 'loading'}
                                         className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2 px-3 rounded-lg transition-colors flex items-center justify-center"
                                         title="Enviar"
                                     >
@@ -279,8 +307,15 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                                 </div>
                                 <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Caso Clínico (MIR/USMLE)</h3>
                                 <div className="text-lg text-white font-medium leading-relaxed font-serif">
-                                    {quizStatus === 'LOADING' ? (
+                                    {quizLoadState?.status === 'loading' || quizStatus === 'LOADING' ? (
                                         <span className="animate-pulse text-gray-400">Analizando registros médicos... generando caso...</span>
+                                    ) : quizLoadState?.status === 'error' ? (
+                                        <div className="text-red-400 flex flex-col gap-2">
+                                            <span>{quizLoadState.message}</span>
+                                            <button onClick={onNextQuestion} className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 py-2 px-4 rounded-lg border border-red-500/30 transition-colors self-start mt-2">
+                                                Reintentar Generar
+                                            </button>
+                                        </div>
                                     ) : (
                                         `"${quizQuestion}"`
                                     )}

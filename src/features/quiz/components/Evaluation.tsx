@@ -10,6 +10,7 @@ type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | '
 import { QRCodeSVG } from 'qrcode.react';
 import { EvaluationDraft, EvaluationQuestion } from '../types/evaluation.ts';
 import { createEvaluationSession, ApiError } from '../services/evaluationApi.ts';
+import { AsyncState } from '../../../shared/types/index.ts';
 
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
@@ -558,48 +559,42 @@ const CodigoQRView: React.FC<{
   onRetry: () => void;
   onSessionCreated?: (sessionId: string) => void;
 }> = ({ onNavigateToStats, config, onRetry, onSessionCreated }) => {
-  const [status, setStatus] = React.useState<'idle' | 'creating' | 'created' | 'error' | 'expired'>('idle');
-  const [sessionId, setSessionId] = React.useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = React.useState<Date | null>(null);
-  const [errorMessage, setErrorMessage] = React.useState<string>('');
+  const [sessionState, setSessionState] = React.useState<AsyncState<{ sessionId: string, expiresAt: Date }> | { status: 'expired' }>({ status: 'idle' });
 
   React.useEffect(() => {
     let mounted = true;
     
     const initSession = async () => {
-      if (status !== 'idle') return;
-      setStatus('creating');
+      if (sessionState.status !== 'idle') return;
+      setSessionState({ status: 'loading' });
       try {
         const response = await createEvaluationSession(config);
         if (!mounted) return;
-        setSessionId(response.sessionId);
-        setExpiresAt(new Date(response.expiresAt));
-        setStatus('created');
+        setSessionState({ status: 'success', data: { sessionId: response.sessionId, expiresAt: new Date(response.expiresAt) } });
         if (onSessionCreated) onSessionCreated(response.sessionId);
       } catch (err: any) {
         if (!mounted) return;
         console.error(err);
-        setErrorMessage(err.message || 'Error al crear la sesión');
-        setStatus('error');
+        setSessionState({ status: 'error', message: err.message || 'Error al crear la sesión' });
       }
     };
 
     initSession();
 
     return () => { mounted = false; };
-  }, [config, status]);
+  }, [config, sessionState.status, onSessionCreated]);
 
   React.useEffect(() => {
-    if (status !== 'created' || !expiresAt) return;
+    if (sessionState.status !== 'success') return;
     
     const checkExpiration = setInterval(() => {
-      if (new Date() > expiresAt) {
-        setStatus('expired');
+      if (new Date() > sessionState.data.expiresAt) {
+        setSessionState({ status: 'expired' });
       }
     }, 1000);
     
     return () => clearInterval(checkExpiration);
-  }, [status, expiresAt]);
+  }, [sessionState]);
 
   return (
     <div className="w-full flex-1 flex flex-col lg:flex-row gap-8 -mx-4 md:-mx-8 px-4 md:px-8">
@@ -611,16 +606,16 @@ const CodigoQRView: React.FC<{
         <div className="w-full max-w-2xl flex flex-col items-center text-center space-y-8 relative z-10">
           <div className="flex flex-col items-center space-y-4">
             <span className="material-symbols-outlined text-green-400 text-5xl drop-shadow-[0_0_15px_rgba(46,204,113,0.3)]" style={{ fontVariationSettings: "'FILL' 1" }}>
-              {status === 'created' ? 'check_circle' : status === 'creating' ? 'sync' : 'error'}
+              {sessionState.status === 'success' ? 'check_circle' : sessionState.status === 'loading' ? 'sync' : 'error'}
             </span>
             <h1 className="text-4xl font-bold text-white tracking-tight">{config.nombre || 'Sesión'}</h1>
-            {status === 'created' && <p className="text-xl font-bold text-white md:hidden">Sesión Lista para la Clase</p>}
+            {sessionState.status === 'success' && <p className="text-xl font-bold text-white md:hidden">Sesión Lista para la Clase</p>}
           </div>
           
-          {status === 'created' && expiresAt && (
+          {sessionState.status === 'success' && (
             <div className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 backdrop-blur-md px-4 py-2 rounded-full">
               <span className="material-symbols-outlined text-indigo-400 text-sm">schedule</span>
-              <span className="text-sm font-bold text-indigo-400">Válido hasta {expiresAt.toLocaleTimeString()}</span>
+              <span className="text-sm font-bold text-indigo-400">Válido hasta {sessionState.data.expiresAt.toLocaleTimeString()}</span>
             </div>
           )}
           
@@ -639,22 +634,22 @@ const CodigoQRView: React.FC<{
           <div className="bg-gray-800/60 backdrop-blur-xl border border-white/10 p-6 rounded-xl shadow-2xl relative group min-h-[350px] flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-xl pointer-events-none"></div>
             
-            {status === 'creating' && (
+            {sessionState.status === 'loading' && (
               <div className="flex flex-col items-center justify-center text-cyan-400 animate-pulse">
                 <span className="material-symbols-outlined text-6xl animate-spin mb-4">sync</span>
                 <p className="font-bold tracking-widest uppercase">Generando Sesión...</p>
               </div>
             )}
 
-            {status === 'error' && (
+            {sessionState.status === 'error' && (
               <div className="flex flex-col items-center justify-center text-red-400">
                 <span className="material-symbols-outlined text-6xl mb-4">error</span>
-                <p className="font-bold mb-4">{errorMessage}</p>
+                <p className="font-bold mb-4">{sessionState.message}</p>
                 <button onClick={onRetry} className="px-6 py-2 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors">Volver y Reintentar</button>
               </div>
             )}
 
-            {status === 'expired' && (
+            {sessionState.status === 'expired' && (
               <div className="flex flex-col items-center justify-center text-orange-400">
                 <span className="material-symbols-outlined text-6xl mb-4">timer_off</span>
                 <p className="font-bold mb-4">El código QR ha expirado.</p>
@@ -662,9 +657,9 @@ const CodigoQRView: React.FC<{
               </div>
             )}
 
-            {status === 'created' && sessionId && (
+            {sessionState.status === 'success' && (
               <div className="w-[300px] h-[300px] bg-white rounded-lg p-4 flex items-center justify-center relative overflow-hidden ring-1 ring-white/20 shadow-[0_0_30px_rgba(0,255,255,0.1)] group-hover:shadow-[0_0_40px_rgba(0,255,255,0.2)] transition-shadow duration-500">
-                <QRCodeSVG value={sessionId} size={260} level="H" includeMargin={false} />
+                <QRCodeSVG value={sessionState.data.sessionId} size={260} level="H" includeMargin={false} />
                 <div className="absolute top-2 left-2 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-md pointer-events-none"></div>
                 <div className="absolute top-2 right-2 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-md pointer-events-none"></div>
                 <div className="absolute bottom-2 left-2 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-md pointer-events-none"></div>
@@ -675,14 +670,14 @@ const CodigoQRView: React.FC<{
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full pt-4">
             <button 
-              disabled={status !== 'created'}
-              onClick={() => { if(sessionId) navigator.clipboard.writeText(sessionId); }}
+              disabled={sessionState.status !== 'success'}
+              onClick={() => { if(sessionState.status === 'success') navigator.clipboard.writeText(sessionState.data.sessionId); }}
               className="w-full sm:w-auto h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
               <span className="material-symbols-outlined text-lg">content_copy</span>
               <span>Copiar ID de Sesión</span>
             </button>
             <button 
-              disabled={status !== 'created'}
+              disabled={sessionState.status !== 'success'}
               onClick={onNavigateToStats} 
               className="w-full sm:w-auto h-12 px-8 bg-transparent border-2 border-indigo-500 text-indigo-400 text-sm font-bold rounded-lg flex items-center justify-center space-x-2 hover:bg-indigo-500/10 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
               <span className="material-symbols-outlined text-lg">monitoring</span>

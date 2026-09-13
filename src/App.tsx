@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx';
-import { ANATOMY_DATA, AnatomicalPart, AppMode } from './shared/types/index.ts';
+import { ANATOMY_DATA, AnatomicalPart, AppMode, AsyncState } from './shared/types/index.ts';
 import { useHandControl } from './features/exploration/hooks/useHandControl.ts';
 import { InfoPanel } from './features/exploration/components/InfoPanel.tsx';
 import { VoiceControl } from './features/exploration/components/VoiceControl.tsx';
@@ -75,13 +75,13 @@ const App: React.FC = () => {
   
   const quizStatus = useAppStore((s) => s.quizStatus);
   const setQuizStatus = useAppStore((s) => s.setQuizStatus);
-
+  
+  const [quizLoadState, setQuizLoadState] = useState<AsyncState<void>>({ status: 'idle' });
 
   const [cameraOrbit, setCameraOrbit] = useState("0deg 75deg 105%");
   const [cameraTarget, setCameraTarget] = useState("auto");
   const [showWebcam, setShowWebcam] = useState(true);
   const [isVoiceManual, setIsVoiceManual] = useState(false);
-  const [modelError, setModelError] = useState(false);
   const isTransparent = useAppStore((s) => s.isTransparent);
   const toggleTransparency = useAppStore((s) => s.toggleTransparency);
   const setIsTransparent = useAppStore((s) => s.setIsTransparent);
@@ -89,7 +89,7 @@ const App: React.FC = () => {
   const [lockedOrbit, setLockedOrbit] = useState<{ theta: number, phi: number } | null>(null);
   
   // Loader runs when model starts downloading (after auth)
-  const [isLoading, setIsLoading] = useState(true);
+  const [modelLoadState, setModelLoadState] = useState<AsyncState<void>>({ status: 'loading' });
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isTransparencyLoading, setIsTransparencyLoading] = useState(false);
 
@@ -99,7 +99,7 @@ const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Custom Hook handles MediaPipe logic (only active if user is authenticated, camera supported, and webcam shown)
-  const { gestureState, orbitOutput } = useHandControl(videoRef, canvasRef, isAuthenticated && showWebcam && cameraSupported);
+  const { gestureState, orbitOutput, cameraError } = useHandControl(videoRef, canvasRef, isAuthenticated && showWebcam && cameraSupported);
 
   // Sync React camera-orbit state only when gesture MODE changes (not every frame).
   // The actual per-frame orbit updates are now written directly to the DOM inside
@@ -133,7 +133,7 @@ const App: React.FC = () => {
     const onLoad = () => {
       // Small delay for smooth transition after model is fully loaded
       setTimeout(() => {
-        setIsLoading(false);
+        setModelLoadState({ status: 'success', data: undefined });
         setIsTransparencyLoading(false);
       }, 500);
     };
@@ -151,7 +151,7 @@ const App: React.FC = () => {
     setUser(user);
     setAuthenticated(true);
     // Restart model loading state
-    setIsLoading(true);
+    setModelLoadState({ status: 'loading' });
     setLoadingProgress(0);
   };
 
@@ -159,7 +159,7 @@ const App: React.FC = () => {
     setUser(null);
     setAuthenticated(true); // guest access allowed
     // Restart model loading state
-    setIsLoading(true);
+    setModelLoadState({ status: 'loading' });
     setLoadingProgress(0);
   };
 
@@ -173,6 +173,7 @@ const App: React.FC = () => {
 
   const startNewQuizRound = async () => {
     setQuizStatus('LOADING');
+    setQuizLoadState({ status: 'loading' });
     setQuizQuestion(null);
     setSelectedPart(null); // Clear any previous selection
 
@@ -187,9 +188,15 @@ const App: React.FC = () => {
     setQuizTarget(target);
 
     // Get vignette from Gemini
-    const question = await getQuizQuestion(target.label);
-    setQuizQuestion(question);
-    setQuizStatus('WAITING_FOR_USER');
+    try {
+      const question = await getQuizQuestion(target.label);
+      setQuizQuestion(question);
+      setQuizStatus('WAITING_FOR_USER');
+      setQuizLoadState({ status: 'success', data: undefined });
+    } catch (err: any) {
+      setQuizLoadState({ status: 'error', message: err.message || 'Error al generar la pregunta.' });
+      setQuizStatus('IDLE');
+    }
   };
 
   // Trigger quiz start when mode changes to QUIZ
@@ -397,7 +404,7 @@ const App: React.FC = () => {
         min-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg 0m` : "auto auto 0m"}
         max-camera-orbit={lockedOrbit ? `${lockedOrbit.theta}deg ${lockedOrbit.phi}deg auto` : "auto auto auto"}
         style={{ width: '100%', height: '100%' }}
-        onError={() => setModelError(true)}
+        onError={() => setModelLoadState({ status: 'error', message: 'No se pudo cargar el modelo 3D (corazonfilial.glb).' })}
       >
         {modelSrc && mode !== AppMode.NAVIGATION && ANATOMY_DATA.map((part) => {
           const isSelected = selectedPart?.id === part.id;
@@ -448,11 +455,11 @@ const App: React.FC = () => {
       </ErrorBoundary>
 
       {/* Error Message if Model Fails */}
-      {modelError && !isLoading && (
+      {modelLoadState.status === 'error' && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-950 z-50">
           <div className="relative w-full max-w-md p-8 rounded-2xl border border-red-800 bg-gray-900/90 backdrop-blur-xl shadow-2xl text-center">
             <h2 className="text-2xl text-red-500 font-bold mb-2">Error de Carga</h2>
-            <p className="text-gray-300">No se pudo cargar el modelo 3D (corazonfilial.glb).</p>
+            <p className="text-gray-300">{modelLoadState.message}</p>
             <p className="text-gray-500 text-sm mt-2">Asegúrate de que el archivo existe en la carpeta del proyecto.</p>
           </div>
         </div>
@@ -604,13 +611,22 @@ const App: React.FC = () => {
 
           {/* Webcam Toggle (Hidden if camera is not supported) */}
           {cameraSupported && (
-            <button
-              onClick={toggleWebcam}
-              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg ${showWebcam ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
-              title="Gestos de Mano"
-            >
-              ✋
-            </button>
+            <div className="relative group">
+              <button
+                onClick={toggleWebcam}
+                className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg 
+                  ${cameraError && showWebcam ? 'bg-red-900 border-red-500 text-red-300' :
+                  showWebcam ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'}`}
+                title={cameraError ? 'Error de cámara' : 'Gestos de Mano'}
+              >
+                ✋
+              </button>
+              {cameraError && showWebcam && (
+                <div className="absolute top-12 right-0 bg-red-900 text-red-200 text-xs px-3 py-1 rounded shadow-lg whitespace-nowrap">
+                  {cameraError}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -626,6 +642,7 @@ const App: React.FC = () => {
             quizStatus={quizStatus}
             onNextQuestion={startNewQuizRound}
             correctAnswerName={quizTarget?.label}
+            quizLoadState={quizLoadState}
           />
         </ErrorBoundary>
       )}
@@ -722,7 +739,7 @@ const App: React.FC = () => {
       )}
 
       {/* Premium Loading Screen Overlay */}
-      {isLoading && (
+      {modelLoadState.status === 'loading' && (
         <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-gray-900 overflow-hidden">
           {/* Background Decorative Elements */}
           <div className="absolute inset-0 opacity-20">

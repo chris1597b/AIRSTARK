@@ -243,5 +243,5 @@ export const useHandControl = (
     };
   }, [videoRef, canvasRef, active]);
 
-  return { gestureState, orbitOutput };
+  return { gestureState, orbitOutput, cameraError };
 };
