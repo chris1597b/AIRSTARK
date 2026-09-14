@@ -28,7 +28,12 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 1
   }
 };
 
-
+/** Helper to create an error with an HTTP status code attached */
+function backendError(statusText: string, status: number): Error {
+  const err = new Error(`Backend error: ${statusText}`) as any;
+  err.status = status;
+  return err;
+}
 
 export const getClinicalContext = async (partName: string): Promise<string> => {
   const prompt = `
@@ -54,7 +59,7 @@ export const getClinicalContext = async (partName: string): Promise<string> => {
       body: JSON.stringify({ prompt, systemInstruction, forceJson: true }),
     });
 
-    if (!response.ok) throw new Error(`Backend error: ${response.statusText}`);
+    if (!response.ok) throw backendError(response.statusText, response.status);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || JSON.stringify(result.data);
@@ -83,7 +88,7 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
       body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
     });
 
-    if (!response.ok) throw new Error(`Backend error: ${response.statusText}`);
+    if (!response.ok) throw backendError(response.statusText, response.status);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Identifica la estructura asociada con esta área basándote en la anatomía.";
@@ -107,7 +112,7 @@ export const sendChatMessage = async (partName: string, message: string, history
       body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
     });
 
-    if (!response.ok) throw new Error(`Backend error: ${response.statusText}`);
+    if (!response.ok) throw backendError(response.statusText, response.status);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Sin respuesta";

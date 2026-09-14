@@ -313,8 +313,11 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                                     ) : quizLoadState?.status === 'error' ? (
                                         <div className="text-red-400 flex flex-col gap-2">
                                             <span>{quizLoadState.message}</span>
-                                            <button onClick={onNextQuestion} className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 py-2 px-4 rounded-lg border border-red-500/30 transition-colors self-start mt-2">
-                                                Reintentar Generar
+                                            <button
+                                              onClick={onNextQuestion}
+                                              className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 py-2 px-4 rounded-lg border border-red-500/30 transition-colors self-start mt-2"
+                                            >
+                                              Reintentar Generar
                                             </button>
                                         </div>
                                     ) : (

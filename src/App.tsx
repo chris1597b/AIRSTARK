@@ -173,6 +173,9 @@ const App: React.FC = () => {
   // --- QUIZ LOGIC ---
 
   const startNewQuizRound = async () => {
+    // Guard: prevent duplicate concurrent requests (e.g. double-click on Reintentar)
+    if (quizStatus === 'LOADING') return;
+
     setQuizStatus('LOADING');
     setQuizLoadState({ status: 'loading' });
     setQuizQuestion(null);
