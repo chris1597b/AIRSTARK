@@ -7,7 +7,7 @@ import { InfoPanel } from './features/exploration/components/InfoPanel.tsx';
 import { VoiceControl } from './features/exploration/components/VoiceControl.tsx';
 import { ScreenRecorder } from './features/recording/components/ScreenRecorder.tsx';
 import { getQuizQuestion } from './shared/lib/geminiService.ts';
-import { ExcalidrawEditor } from './features/whiteboard/components/ExcalidrawEditor.tsx';
+const ExcalidrawEditor = React.lazy(() => import('./features/whiteboard/components/ExcalidrawEditor.tsx').then(m => ({ default: m.ExcalidrawEditor })));
 import { Evaluation } from './features/quiz/components/Evaluation.tsx';
 import { AuthScreen } from './features/auth/components/AuthScreen.tsx';
 import { signOut } from './features/auth/services/googleAuth.ts';
@@ -716,7 +716,9 @@ const App: React.FC = () => {
       {/* Excalidraw Editor Overlay — Error Boundary */}
       {mode === AppMode.DRAW && (
         <ErrorBoundary label="Pizarra (Excalidraw)">
-          <ExcalidrawEditor onClose={() => setMode(AppMode.EXPLORE)} />
+          <React.Suspense fallback={<div className="absolute inset-0 z-40 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm text-white text-lg font-semibold tracking-wide">Cargando pizarra...</div>}>
+            <ExcalidrawEditor onClose={() => setMode(AppMode.EXPLORE)} />
+          </React.Suspense>
         </ErrorBoundary>
       )}
 
