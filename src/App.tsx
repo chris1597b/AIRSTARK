@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx';
 import { ANATOMY_DATA, AnatomicalPart, AppMode, AsyncState } from './shared/types/index.ts';
 import { useHandControl } from './features/exploration/hooks/useHandControl.ts';
+import { getFriendlyErrorMessage } from './shared/utils/errorUtils.ts';
 import { InfoPanel } from './features/exploration/components/InfoPanel.tsx';
 import { VoiceControl } from './features/exploration/components/VoiceControl.tsx';
 import { ScreenRecorder } from './features/recording/components/ScreenRecorder.tsx';
@@ -194,7 +195,7 @@ const App: React.FC = () => {
       setQuizStatus('WAITING_FOR_USER');
       setQuizLoadState({ status: 'success', data: undefined });
     } catch (err: any) {
-      setQuizLoadState({ status: 'error', message: err.message || 'Error al generar la pregunta.' });
+      setQuizLoadState({ status: 'error', message: getFriendlyErrorMessage(err) });
       setQuizStatus('IDLE');
     }
   };

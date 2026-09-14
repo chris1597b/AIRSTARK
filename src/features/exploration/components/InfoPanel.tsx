@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnatomicalPart, AppMode, AsyncState } from '../../../shared/types/index.ts';
-import { getClinicalContext, MedicalData, sendChatMessage } from '../../../shared/lib/geminiService.ts';
+import { MedicalData, sendChatMessage } from '../../../shared/lib/geminiService.ts';
+import { getFriendlyErrorMessage } from '../../../shared/utils/errorUtils.ts';
 import EKGMonitor from '../../navigation/components/EKGMonitor.tsx';
 
 interface ChatMessage {
@@ -70,7 +71,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             setChatMessages(prev => [...prev, aiMsg]);
             setChatState({ status: 'success', data: undefined });
         } catch (error: any) {
-            setChatState({ status: 'error', message: error.message || "Error de conexión." });
+            setChatState({ status: 'error', message: getFriendlyErrorMessage(error) });
         }
     };
 
@@ -85,7 +86,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             setChatMessages(prev => [...prev, aiMsg]);
             setChatState({ status: 'success', data: undefined });
         } catch (error: any) {
-            setChatState({ status: 'error', message: error.message || "Error de conexión." });
+            setChatState({ status: 'error', message: getFriendlyErrorMessage(error) });
         }
     };
 

@@ -2,9 +2,6 @@
 // Backend API URL (Usa la variable de entorno de Vercel o de lo contrario asume fallback)
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
-// Fallback Key from Vite environment (necesario en Vercel si no hay backend)
-const FALLBACK_API_KEY = import.meta.env.VITE_API_KEY || (typeof process !== "undefined" ? process.env?.GEMINI_API_KEY : undefined);
-
 // Defines the structure of the medical data we expect
 export interface MedicalData {
   physiology: string;
@@ -31,41 +28,7 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 1
   }
 };
 
-// Función auxiliar para llamar directamente en caso de que el backend falle (Vercel)
-const callGeminiDirectly = async (prompt: string, systemInstruction: string, forceJson: boolean): Promise<string> => {
-  if (!FALLBACK_API_KEY) throw new Error("No hay API Key de respaldo configurada (VITE_API_KEY en Vercel).");
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${FALLBACK_API_KEY}`;
-
-  const response = await fetchWithTimeout(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemInstruction }]
-      },
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: {
-        responseMimeType: forceJson ? "application/json" : "text/plain"
-      }
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-    return data.candidates[0].content.parts[0].text;
-  }
-
-  throw new Error("Respuesta de Gemini malformada o vacía.");
-};
 
 export const getClinicalContext = async (partName: string): Promise<string> => {
   const prompt = `
@@ -97,12 +60,8 @@ export const getClinicalContext = async (partName: string): Promise<string> => {
     return result.data.text || JSON.stringify(result.data);
 
   } catch (error: any) {
-    console.warn("Backend no disponible. Tratando conexión directa con Gemini de respaldo...", error.message);
-    // Si fue un timeout del backend, abortar de inmediato para no hacer esperar al usuario de nuevo
-    if (error.message.includes('tardó demasiado')) throw error;
-    
-    // 2. Si el backend falla, intentar directo:
-    return await callGeminiDirectly(prompt, systemInstruction, true);
+    console.warn("Error de conexión con el backend:", error.message);
+    throw error;
   }
 };
 
@@ -130,9 +89,8 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
     return result.data.text || "Identifica la estructura asociada con esta área basándote en la anatomía.";
 
   } catch (error: any) {
-    console.warn("Backend no disponible. Fallback directo a Gemini para Quiz...", error.message);
-    if (error.message.includes('tardó demasiado')) throw error;
-    return await callGeminiDirectly(prompt, systemInstruction, false);
+    console.warn("Error de conexión con el backend:", error.message);
+    throw error;
   }
 };
 
@@ -154,8 +112,7 @@ export const sendChatMessage = async (partName: string, message: string, history
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Sin respuesta";
   } catch (error: any) {
-    console.warn("Backend no disponible. Fallback directo a Gemini para Chat...", error.message);
-    if (error.message.includes('tardó demasiado')) throw error;
-    return await callGeminiDirectly(prompt, systemInstruction, false);
+    console.warn("Error de conexión con el backend:", error.message);
+    throw error;
   }
 };

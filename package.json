@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:all": "concurrently --names \"FRONT,BACK\" --prefix-colors \"cyan,yellow\" \"npm run dev\" \"npm run dev --prefix server\""
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-basic-ssl": "^2.1.4",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^10.0.5",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
