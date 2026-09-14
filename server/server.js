@@ -7,7 +7,10 @@ import { GoogleGenAI } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// parseInt: un PORT=0 (falsy en int, truthy en string) haría que Express escoja un puerto efímero aleatorio
+// y el frontend no encontrara el backend en 3001. Si el parseo falla o da <=0, usar 3001.
+const parsedPort = parseInt(process.env.PORT, 10);
+const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3001;
 
 // Inicializar Gemini AI con la API key del servidor
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
