@@ -15,6 +15,7 @@ import { logout } from './features/quiz/services/evaluationApi.ts';
 import { AuthenticatedUser } from './features/quiz/types/evaluation.ts';
 import { useAppStore } from './store/useAppStore.ts';
 import { useModuleAccess } from './shared/hooks/useModuleAccess.ts';
+import { useSupabaseAuth } from './features/auth/hooks/useSupabaseAuth.ts';
 import "./index.css";
 
 // Extend JSX for model-viewer
@@ -61,6 +62,11 @@ const App: React.FC = () => {
   const setUser = useAppStore((s) => s.setUser);
   const logoutAction = useAppStore((s) => s.logout);
   const checkAuthOnMount = useAppStore((s) => s.checkAuthOnMount);
+
+  // ── Supabase Auth: sincroniza el estado de Supabase con el store Zustand ──
+  // Este hook escucha onAuthStateChange y actualiza user/isAuthenticated
+  // cuando Supabase completa el OAuth callback de Google.
+  const { logout: supabaseLogout } = useSupabaseAuth();
 
   // Feature Support State
   const cameraSupported = useAppStore((s) => s.camera);
@@ -168,6 +174,7 @@ const App: React.FC = () => {
     signOut(currentUser?.email);
     logoutAction();
     await logout();
+    await supabaseLogout();
   };
 
   // --- QUIZ LOGIC ---

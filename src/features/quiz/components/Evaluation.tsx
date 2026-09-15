@@ -9,13 +9,38 @@ type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | '
 
 import { QRCodeSVG } from 'qrcode.react';
 import { EvaluationDraft, EvaluationQuestion } from '../types/evaluation.ts';
-import { createEvaluationSession, ApiError } from '../services/evaluationApi.ts';
 import { AsyncState } from '../../../shared/types/index.ts';
+import { createSession, listSessions, SessionListItem } from '../../evaluation/services/sessionService.ts';
 
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
 ───────────────────────────────────────────── */
-const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => (
+/* ─────────────────────────────────────────────
+   Sub-vista: Panel (dashboard existente)
+───────────────────────────────────────────── */
+const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => {
+  const [sessions, setSessions] = React.useState<SessionListItem[]>([]);
+  const [sessionsLoading, setSessionsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+    setSessionsLoading(true);
+    listSessions()
+      .then((data) => { if (mounted) setSessions(data); })
+      .catch((err) => { console.error('[AIRSTARK] Error cargando sesiones:', err); })
+      .finally(() => { if (mounted) setSessionsLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  const statusColors: Record<string, string> = {
+    waiting: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    active: 'bg-green-500/20 text-green-400 border-green-500/30',
+    completed: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    expired: 'bg-red-500/20 text-red-400 border-red-500/30',
+    cancelled: 'bg-gray-700/40 text-gray-500 border-gray-700/30',
+  };
+
+  return (
   <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
     {/* Header */}
     <div className="flex justify-between items-end mb-12">
@@ -57,51 +82,65 @@ const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => 
               </span>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Sesiones Activas Hoy</p>
-              <h2 className="text-4xl font-bold text-white">2</h2>
+              <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Sesiones Totales</p>
+              <h2 className="text-4xl font-bold text-white">{sessionsLoading ? '...' : sessions.length}</h2>
             </div>
           </div>
 
           <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 flex flex-col gap-4">
             <div className="flex justify-between items-start">
               <div className="w-10 h-10 rounded-full bg-slate-700/40 flex items-center justify-center border border-white/10">
-                <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '20px' }}>groups</span>
+                <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '20px' }}>pending_actions</span>
               </div>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Estudiantes Conectados</p>
-              <h2 className="text-4xl font-bold text-white">48</h2>
+              <p className="text-xs text-gray-400 uppercase mb-1 font-bold">Sesiones Activas</p>
+              <h2 className="text-4xl font-bold text-white">
+                {sessionsLoading ? '...' : sessions.filter(s => s.status === 'active' || s.status === 'waiting').length}
+              </h2>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar: Sesiones reales de Supabase */}
       <div className="col-span-1 lg:col-span-4 flex flex-col gap-6">
         <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-full flex flex-col">
           <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
             <span className="material-symbols-outlined text-cyan-400" style={{ fontSize: '20px' }}>history</span>
             Sesiones Recientes
           </h3>
-          <div className="flex flex-col gap-4 flex-1">
-            {[
-              { title: 'Anatomía Cardíaca', date: 'Ayer', students: 24, duration: '45m' },
-              { title: 'Neurocirugía Básica', date: 'Mar 12', students: 18, duration: '1h 15m' },
-            ].map((s, i) => (
-              <div key={i} className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors cursor-pointer group">
+          <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
+            {sessionsLoading ? (
+              <div className="flex items-center justify-center py-8 text-gray-500">
+                <span className="material-symbols-outlined animate-spin mr-2">sync</span>
+                Cargando...
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                No hay sesiones todavía.
+                <br />Crea tu primera sesión AR.
+              </div>
+            ) : sessions.slice(0, 5).map((s) => (
+              <div key={s.id} className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors group">
                 <div className="flex justify-between items-start mb-2">
-                  <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors">{s.title}</h4>
-                  <span className="text-xs text-gray-400">{s.date}</span>
+                  <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" title={s.name}>{s.name}</h4>
+                  <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${statusColors[s.status] ?? 'bg-gray-700/40 text-gray-500 border-gray-700/30'}`}>
+                    {s.status}
+                  </span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1 text-gray-400">
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>groups</span>
-                    <span className="text-xs">{s.students}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-400">
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>timer</span>
-                    <span className="text-xs">{s.duration}</span>
-                  </div>
+                <div className="flex items-center gap-3 text-xs text-gray-400">
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>timer</span>
+                    {s.duration_minutes}m
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>calendar_today</span>
+                    {new Date(s.activation_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                <div className="mt-2 text-[10px] text-gray-600 font-mono truncate" title={s.id}>
+                  {s.id.split('-')[0]}...
                 </div>
               </div>
             ))}
@@ -114,6 +153,7 @@ const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => 
     </div>
   </div>
 );
+};
 
 /* ─────────────────────────────────────────────
    Sub-vista: Información (desde Stitch)
@@ -561,6 +601,13 @@ const CodigoQRView: React.FC<{
 }> = ({ onNavigateToStats, config, onRetry, onSessionCreated }) => {
   const [sessionState, setSessionState] = React.useState<AsyncState<{ sessionId: string, expiresAt: Date }> | { status: 'expired' }>({ status: 'idle' });
 
+  // IDEMPOTENCY: Generar idempotency_key UNA VEZ al montar este componente.
+  // Si el profesor reintenta, reutilizamos el mismo key para NO crear una sesión duplicada.
+  // Si quiere crear una NUEVA sesión distinta, debe volver al Panel (que resetea el config).
+  const idempotencyKeyRef = React.useRef<string>(
+    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString()
+  );
+
   React.useEffect(() => {
     let mounted = true;
     
@@ -568,14 +615,17 @@ const CodigoQRView: React.FC<{
       if (sessionState.status !== 'idle') return;
       setSessionState({ status: 'loading' });
       try {
-        const response = await createEvaluationSession(config);
+        // createSession conecta con Supabase real.
+        // El sessionId es generado por PostgreSQL (gen_random_uuid()).
+        // El QR contendrá SOLO este UUID.
+        const response = await createSession(config, { idempotencyKey: idempotencyKeyRef.current });
         if (!mounted) return;
         setSessionState({ status: 'success', data: { sessionId: response.sessionId, expiresAt: new Date(response.expiresAt) } });
         if (onSessionCreated) onSessionCreated(response.sessionId);
       } catch (err: any) {
         if (!mounted) return;
-        console.error(err);
-        setSessionState({ status: 'error', message: err.message || 'Error al crear la sesión' });
+        console.error('[AIRSTARK] Error al crear sesión:', err);
+        setSessionState({ status: 'error', message: err.message || 'No se pudo crear la sesión. Verifica tu autenticación.' });
       }
     };
 

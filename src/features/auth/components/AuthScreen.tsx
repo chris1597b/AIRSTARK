@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle, GoogleUser } from '../services/googleAuth.ts';
+import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle } from '../services/googleAuth.ts';
 import { loginWithGoogle } from '../../quiz/services/evaluationApi.ts';
+import { signInWithGoogleSupabase } from '../services/supabaseAuth.ts';
 import type { AuthenticatedUser } from '../../quiz/types/evaluation.ts';
 
 interface AuthScreenProps {
@@ -11,9 +12,11 @@ interface AuthScreenProps {
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest }) => {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSupabaseLoading, setIsSupabaseLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
   const hasClientId = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL;
 
   // Fade-in on mount
   useEffect(() => {
@@ -72,7 +75,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
     };
   }, [hasClientId, onAuthenticated]);
 
-  // Fallback: One-Tap prompt button
+  // Supabase Auth Google OAuth (método principal — provee auth.uid() para RLS)
+  const handleSupabaseGoogleSignIn = async () => {
+    setIsSupabaseLoading(true);
+    setError(null);
+    try {
+      // Redirige a Google y luego vuelve a la app
+      // El estado se actualiza via onSupabaseAuthStateChange en useSupabaseAuth
+      await signInWithGoogleSupabase();
+    } catch (err: any) {
+      setError(err.message ?? 'Error al iniciar sesión con Supabase');
+      setIsSupabaseLoading(false);
+    }
+  };
+
+  // Fallback: One-Tap prompt button (legacy GIS)
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
@@ -169,10 +186,42 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
 
         {/* Google Sign-In area */}
         <div className="w-full flex flex-col items-center gap-4">
-          {hasClientId ? (
+          {/* Supabase Auth + Google OAuth (método principal) */}
+          {hasSupabase && (
+            <button
+              id="supabase-google-signin"
+              onClick={handleSupabaseGoogleSignIn}
+              disabled={isSupabaseLoading}
+              className="group relative w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-300 select-none"
+              style={{
+                background: isSupabaseLoading ? 'rgba(20,184,166,0.15)' : 'linear-gradient(135deg, rgba(20,184,166,0.2), rgba(20,184,166,0.08))',
+                border: '1px solid rgba(20,184,166,0.4)',
+                color: '#ffffff',
+                boxShadow: isSupabaseLoading ? 'none' : '0 0 20px rgba(20,184,166,0.15)',
+              }}
+            >
+              {isSupabaseLoading ? (
+                <svg className="animate-spin w-5 h-5 text-teal-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 48 48">
+                  <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z" />
+                  <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16.1 19 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+                  <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.5 35.6 16.3 44 24 44z" />
+                  <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.2 5.2C37 38.3 44 33 44 24c0-1.3-.1-2.6-.4-3.9z" />
+                </svg>
+              )}
+              <span>{isSupabaseLoading ? 'Redirigiendo...' : 'Iniciar Sesión con Google'}</span>
+            </button>
+          )}
+
+          {/* GIS fallback (solo si no hay Supabase) */}
+          {!hasSupabase && hasClientId ? (
             /* Official Google button rendered by GIS SDK */
             <div ref={googleBtnRef} className="flex justify-center w-full min-h-[48px]" />
-          ) : (
+          ) : !hasSupabase ? (
             /* Styled fallback when no Client ID is set */
             <button
               onClick={handleGoogleSignIn}
@@ -199,7 +248,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
               )}
               <span>{isLoading ? 'Iniciando sesión...' : 'Continuar con Google'}</span>
             </button>
-          )}
+          ) : null}
 
           {/* Error */}
           {error && (
