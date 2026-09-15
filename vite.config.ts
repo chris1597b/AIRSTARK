@@ -10,7 +10,9 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
     },
-    plugins: [react(), basicSsl()],
+    // HTTPS (certificado autofirmado) solo si se pide explícitamente: ENABLE_BASIC_SSL=true
+    // localhost es contexto seguro también por HTTP, así que cámara/voz funcionan igual.
+    plugins: [react(), ...(env.ENABLE_BASIC_SSL === 'true' ? [basicSsl()] : [])],
     define: {
       'process.env': {
         API_KEY: env.GEMINI_API_KEY || '',
