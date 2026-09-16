@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { initializeGoogleAuth, renderGoogleButton, signInWithGoogle } from '../services/googleAuth.ts';
 import { loginWithGoogle } from '../../quiz/services/evaluationApi.ts';
-import { signInWithGoogleSupabase } from '../services/supabaseAuth.ts';
+import { signInWithGoogleSupabase, isGoogleProviderEnabled } from '../services/supabaseAuth.ts';
 import type { AuthenticatedUser } from '../../quiz/types/evaluation.ts';
 
 interface AuthScreenProps {
@@ -80,11 +80,39 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, onGuest
     setIsSupabaseLoading(true);
     setError(null);
     try {
+      // Preflight: si el provider de Google está deshabilitado en el dashboard
+      // de Supabase, la redirección nunca ocurrirá. Detectarlo ANTES de
+      // redirigir evita el spinner infinito y muestra la causa real.
+      const googleEnabled = await isGoogleProviderEnabled();
+      if (!googleEnabled) {
+        setError(
+          'El acceso con Google no está disponible: el proveedor de Google no está habilitado en el servidor de autenticación. ' +
+          'Un administrador debe habilitarlo en Supabase (Authentication → Providers → Google).'
+        );
+        setIsSupabaseLoading(false);
+        return;
+      }
       // Redirige a Google y luego vuelve a la app
       // El estado se actualiza via onSupabaseAuthStateChange en useSupabaseAuth
       await signInWithGoogleSupabase();
+      // Watchdog anti-spinner-infinito: si en 8s no hubo navegación (p. ej.
+      // redirect URLs mal configuradas, popup bloqueado o error silencioso),
+      // restaurar el botón y avisar. Si la página navega, este timer muere
+      // con el componente y no hace nada.
+      setTimeout(() => {
+        setIsSupabaseLoading((loading) => {
+          if (loading) {
+            setError(
+              'No se pudo iniciar la autenticación con Google. Verifica tu conexión e inténtalo de nuevo. ' +
+              'Si el problema persiste, un administrador debe revisar la configuración de OAuth en Supabase.'
+            );
+            return false;
+          }
+          return loading;
+        });
+      }, 8000);
     } catch (err: any) {
-      setError(err.message ?? 'Error al iniciar sesión con Supabase');
+      setError(err.message ?? 'No se pudo iniciar sesión con Google.');
       setIsSupabaseLoading(false);
     }
   };

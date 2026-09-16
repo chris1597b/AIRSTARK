@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getStoredUser } from '../../auth/services/googleAuth.ts';
+import { useAppStore } from '../../../store/useAppStore.ts';
 
 interface EvaluationProps {
   onExit: () => void;
@@ -10,7 +10,22 @@ type Tab = 'panel' | 'informacion' | 'modelo' | 'cuestionario' | 'codigo_qr' | '
 import { QRCodeSVG } from 'qrcode.react';
 import { EvaluationDraft, EvaluationQuestion } from '../types/evaluation.ts';
 import { AsyncState } from '../../../shared/types/index.ts';
-import { createSession, listSessions, SessionListItem } from '../../evaluation/services/sessionService.ts';
+import { createSession, getSession, listSessions, listEvaluations, listModels3D, SessionListItem, EvaluationListItem, CreateSessionStage } from '../../evaluation/services/sessionService.ts';
+import { getSupabaseCurrentUser } from '../../auth/services/supabaseAuth.ts';
+
+/** Etiquetas de progreso por etapa de creación (QA: feedback visible de la espera). */
+const STAGE_LABELS: Record<CreateSessionStage, string> = {
+  auth: 'Verificando tu sesión…',
+  evaluation: 'Guardando cuestionario…',
+  questions: 'Guardando preguntas…',
+  session: 'Creando sesión y código QR…',
+};
+
+/**
+ * Origen de las preguntas de la sesión: un cuestionario existente en Supabase
+ * (por defecto) o el borrador editable del formulario.
+ */
+type QuestionSource = 'evaluacion_existente' | 'borrador_nuevo';
 
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
@@ -18,13 +33,17 @@ import { createSession, listSessions, SessionListItem } from '../../evaluation/s
 /* ─────────────────────────────────────────────
    Sub-vista: Panel (dashboard existente)
 ───────────────────────────────────────────── */
-const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => {
+const PanelView: React.FC<{ onNewSession: () => void; onOpenSessionQR: (sessionId: string) => void }> = ({ onNewSession, onOpenSessionQR }) => {
   const [sessions, setSessions] = React.useState<SessionListItem[]>([]);
   const [sessionsLoading, setSessionsLoading] = React.useState(true);
 
   React.useEffect(() => {
     let mounted = true;
     setSessionsLoading(true);
+    // QA warm-up: valida la sesión de auth al entrar al módulo (calienta la
+    // conexión TLS con Supabase Auth para que la creación posterior sea más
+    // rápida) y detecta sesión expirada antes de configurar nada.
+    getSupabaseCurrentUser().catch(() => null);
     listSessions()
       .then((data) => { if (mounted) setSessions(data); })
       .catch((err) => { console.error('[AIRSTARK] Error cargando sesiones:', err); })
@@ -122,7 +141,11 @@ const PanelView: React.FC<{ onNewSession: () => void }> = ({ onNewSession }) => 
                 <br />Crea tu primera sesión AR.
               </div>
             ) : sessions.slice(0, 5).map((s) => (
-              <div key={s.id} className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors group">
+              <div
+                key={s.id}
+                onClick={() => onOpenSessionQR(s.id)}
+                className="p-4 rounded-lg bg-slate-700/50 border border-white/10 hover:bg-slate-600/50 transition-colors group cursor-pointer"
+              >
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" title={s.name}>{s.name}</h4>
                   <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${statusColors[s.status] ?? 'bg-gray-700/40 text-gray-500 border-gray-700/30'}`}>
@@ -265,6 +288,7 @@ const InformacionView: React.FC<{ onNext: () => void; config: EvaluationDraft; s
                 DESACTIVA
               </label>
             </div>
+            <p className="text-[11px] text-gray-500 mt-3">Toda sesión nueva inicia en espera en Supabase; el estado cambia solo cuando hay actividad.</p>
           </section>
         </div>
 
@@ -328,12 +352,34 @@ const InformacionView: React.FC<{ onNext: () => void; config: EvaluationDraft; s
    Sub-vista: Modelo
 ───────────────────────────────────────────── */
 const ModeloView: React.FC<{ onNext: () => void; onCancel: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, onCancel, config, setConfig }) => {
-  const models = [
+  // §17: catálogo real desde Supabase (models_3d). Fallback local si falla la red.
+  const [models, setModels] = React.useState<{ id: string; icon: string; label: string }[]>([
     { id: 'heart', icon: 'cardiology', label: 'Heart' },
     { id: 'brain', icon: 'neurology', label: 'Brain' },
     { id: 'lungs', icon: 'pulmonology', label: 'Lungs' },
     { id: 'kidneys', icon: 'nephrology', label: 'Kidneys' }
-  ];
+  ]);
+
+  React.useEffect(() => {
+    let mounted = true;
+    listModels3D()
+      .then((rows) => {
+        if (!mounted || rows.length === 0) return;
+        const iconByKey: Record<string, string> = {
+          heart: 'cardiology',
+          brain: 'neurology',
+          lungs: 'pulmonology',
+          kidneys: 'nephrology',
+        };
+        setModels(rows.map((r) => ({
+          id: r.asset_key,
+          icon: iconByKey[r.asset_key] ?? 'biotech',
+          label: r.name,
+        })));
+      })
+      .catch((err) => console.error('[AIRSTARK] Error cargando modelos 3D:', err));
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
@@ -396,6 +442,44 @@ const ModeloView: React.FC<{ onNext: () => void; onCancel: () => void; config: E
 ───────────────────────────────────────────── */
 const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; setConfig: React.Dispatch<React.SetStateAction<EvaluationDraft>> }> = ({ onNext, config, setConfig }) => {
   const [currentQIndex, setCurrentQIndex] = useState(0);
+  // QA: error de validación visible en la vista (antes: alert() nativo).
+  const [formError, setFormError] = useState<string | null>(null);
+  // QA: confirmación visual de "Guardar Formulario" (antes: sin feedback).
+  const [justSaved, setJustSaved] = useState(false);
+  const savedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
+
+  // §16 FASE 1: el profesor debe poder seleccionar un cuestionario existente.
+  // Editor completo de preguntas queda para una fase posterior; el editor del
+  // borrador sigue disponible como origen alternativo ('borrador_nuevo').
+  const [evaluations, setEvaluations] = useState<EvaluationListItem[]>([]);
+  const [evaluationsLoading, setEvaluationsLoading] = useState(true);
+  const [evaluationsError, setEvaluationsError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    setEvaluationsLoading(true);
+    setEvaluationsError(null);
+    listEvaluations()
+      .then((data) => { if (mounted) setEvaluations(data); })
+      .catch((err: any) => {
+        if (mounted) setEvaluationsError(err?.message ?? 'No se pudieron cargar las evaluaciones.');
+      })
+      .finally(() => { if (mounted) setEvaluationsLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  // Si el profesor elegía 'evaluacion_existente' pero no hay ninguna (p. ej.
+  // primer uso), degradar automáticamente al editor del borrador.
+  React.useEffect(() => {
+    if (!evaluationsLoading && evaluations.length === 0 && config.origenPreguntas === 'evaluacion_existente') {
+      setConfig({ ...config, origenPreguntas: 'borrador_nuevo', evaluacionSeleccionadaId: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evaluationsLoading, evaluations.length]);
 
   const currentQ = config.preguntas[currentQIndex];
 
@@ -440,22 +524,31 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; 
   const handleSaveConfig = async () => {
     // TODO: Conectar con el Backend cuando el endpoint POST /api/v1/evaluations esté disponible.
     // Por ahora el estado vive en el componente padre (EvaluationDraft).
-    // No se requiere acción adicional hasta que el Backend esté implementado.
-    console.info('[AIRSTARK] Configuración del cuestionario lista en estado local:', config);
+    // Se confirma visualmente para no dejar el botón sin feedback (QA).
+    setJustSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setJustSaved(false), 2000);
   };
 
   const handleGenerateQR = () => {
+    setFormError(null);
     if (!config.nombre.trim()) {
-      alert("Por favor, ingrese un nombre para la sesión en la pestaña de Información.");
+      setFormError("Ponle un nombre a la sesión en la pestaña de Información antes de generar el QR.");
       return;
     }
-    if (config.preguntas.some(q => !q.prompt.trim() || q.options.some(o => !o.text.trim()))) {
-      alert("Todas las preguntas y opciones deben tener texto.");
+    if (config.origenPreguntas === 'evaluacion_existente' && !config.evaluacionSeleccionadaId) {
+      setFormError("Selecciona un cuestionario existente o cambia a 'Crear cuestionario nuevo'.");
       return;
     }
-    if (config.preguntas.some(q => !q.options.some(o => o.isCorrect))) {
-      alert("Cada pregunta debe tener al menos una opción correcta.");
-      return;
+    if (config.origenPreguntas === 'borrador_nuevo') {
+      if (config.preguntas.some(q => !q.prompt.trim() || q.options.some(o => !o.text.trim()))) {
+        setFormError("Todas las preguntas y opciones deben tener texto.");
+        return;
+      }
+      if (config.preguntas.some(q => !q.options.some(o => o.isCorrect))) {
+        setFormError("Cada pregunta debe tener al menos una opción correcta.");
+        return;
+      }
     }
     onNext();
   };
@@ -473,8 +566,76 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; 
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
         <div className="xl:col-span-12 flex flex-col h-full">
-          {currentQ ? (
-            <section className="rounded-xl p-6 flex-1 flex flex-col relative" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          {/* Selector de origen de preguntas (FASE 1 §16) */}
+          <section className="rounded-xl p-6 mb-6" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-gray-400">assignment</span>
+                Origen de las preguntas
+              </h2>
+            </div>
+            {evaluationsLoading ? (
+              <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+                <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>sync</span>
+                Cargando cuestionarios...
+              </div>
+            ) : evaluationsError ? (
+              <div className="flex items-center gap-2 text-red-400 text-sm py-2">
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>error</span>
+                {evaluationsError}
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setConfig({ ...config, origenPreguntas: 'evaluacion_existente', evaluacionSeleccionadaId: config.evaluacionSeleccionadaId ?? evaluations[0]?.id ?? null })}
+                  disabled={evaluations.length === 0}
+                  className={`flex-1 px-4 py-3 rounded-lg text-sm font-semibold border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed ${
+                    config.origenPreguntas === 'evaluacion_existente'
+                      ? 'bg-cyan-400/10 border-cyan-400/50 text-cyan-300'
+                      : 'bg-gray-900/40 border-white/10 text-gray-400 hover:border-white/25'
+                  }`}
+                >
+                  Usar cuestionario existente
+                  <span className="block text-[10px] font-normal text-gray-500 mt-0.5">
+                    {evaluations.length === 0 ? 'No tienes cuestionarios guardados' : `${evaluations.length} disponible(s) en Supabase`}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setConfig({ ...config, origenPreguntas: 'borrador_nuevo', evaluacionSeleccionadaId: null })}
+                  className={`flex-1 px-4 py-3 rounded-lg text-sm font-semibold border transition-all text-left ${
+                    config.origenPreguntas === 'borrador_nuevo'
+                      ? 'bg-cyan-400/10 border-cyan-400/50 text-cyan-300'
+                      : 'bg-gray-900/40 border-white/10 text-gray-400 hover:border-white/25'
+                  }`}
+                >
+                  Crear cuestionario nuevo
+                  <span className="block text-[10px] font-normal text-gray-500 mt-0.5">Editar preguntas en el borrador</span>
+                </button>
+              </div>
+            )}
+            {config.origenPreguntas === 'evaluacion_existente' && evaluations.length > 0 && (
+              <div className="mt-4">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2" htmlFor="evaluacion-existente">
+                  Cuestionario
+                </label>
+                <select
+                  id="evaluacion-existente"
+                  value={config.evaluacionSeleccionadaId ?? ''}
+                  onChange={(e) => setConfig({ ...config, evaluacionSeleccionadaId: e.target.value || null })}
+                  className="w-full bg-gray-900/60 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all [color-scheme:dark]"
+                >
+                  {evaluations.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.name}{ev.description ? ` — ${ev.description}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </section>
+
+          {config.origenPreguntas === 'borrador_nuevo' && currentQ ? (
+          <section className="rounded-xl p-6 flex-1 flex flex-col relative" style={{ background: 'rgba(31,41,55,0.6)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <div className="absolute top-0 left-0 w-1 h-full bg-gray-600 rounded-l-xl"></div>
               
               <div className="flex justify-between items-center mb-6">
@@ -539,8 +700,8 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; 
                     </button>
                     <div className="flex gap-3">
                       <button onClick={handleSaveConfig} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-cyan-400/10 text-cyan-400 hover:bg-cyan-400/20 border border-cyan-400/30 transition-all">
-                        <span className="material-symbols-outlined text-sm">save</span>
-                        <span className="text-xs font-bold uppercase tracking-wider">Guardar Formulario</span>
+                        <span className="material-symbols-outlined text-sm">{justSaved ? 'check_circle' : 'save'}</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{justSaved ? 'Guardado' : 'Guardar Formulario'}</span>
                       </button>
                       <button 
                         onClick={handleDeleteEvaluationQuestion}
@@ -581,10 +742,18 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; 
 
       {/* Action Bar */}
       <div className="flex justify-end mt-8 pt-6 border-t border-white/10">
-        <button onClick={handleGenerateQR} className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>qr_code_2</span>
-          Generar código QR
-        </button>
+        <div className="flex flex-col items-end gap-3 w-full sm:w-auto">
+          {formError && (
+            <div className="w-full px-4 py-3 rounded-xl text-xs text-red-300 text-center"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <span className="font-bold">Revisa el formulario:</span> {formError}
+            </div>
+          )}
+          <button onClick={handleGenerateQR} className="h-12 px-8 bg-cyan-400 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] active:scale-95">
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>qr_code_2</span>
+            Generar código QR
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -598,8 +767,12 @@ const CodigoQRView: React.FC<{
   config: EvaluationDraft;
   onRetry: () => void;
   onSessionCreated?: (sessionId: string) => void;
-}> = ({ onNavigateToStats, config, onRetry, onSessionCreated }) => {
+  /** §21: sessionId de una sesión YA creada (reabrir QR desde el Panel). */
+  presetSessionId?: string | null;
+}> = ({ onNavigateToStats, config, onRetry, onSessionCreated, presetSessionId }) => {
   const [sessionState, setSessionState] = React.useState<AsyncState<{ sessionId: string, expiresAt: Date }> | { status: 'expired' }>({ status: 'idle' });
+  // QA: etapa actual de la creación (se muestra bajo el spinner).
+  const [stage, setStage] = React.useState<CreateSessionStage | null>(null);
 
   // IDEMPOTENCY: Generar idempotency_key UNA VEZ al montar este componente.
   // Si el profesor reintenta, reutilizamos el mismo key para NO crear una sesión duplicada.
@@ -613,12 +786,43 @@ const CodigoQRView: React.FC<{
     
     const initSession = async () => {
       if (sessionState.status !== 'idle') return;
+
+      // §21 REUTILIZACIÓN DEL QR: si llega un sessionId de una sesión YA creada
+      // (reabierta desde el Panel), NO se crea otra sesión: se recupera de
+      // Supabase y se muestra el MISMO sessionId → mismo QR.
+      if (presetSessionId) {
+        setSessionState({ status: 'loading' });
+        try {
+          const existing = await getSession(presetSessionId);
+          if (!mounted) return;
+          if (existing) {
+            setSessionState({
+              status: 'success',
+              data: {
+                sessionId: existing.id,
+                expiresAt: existing.expires_at ? new Date(existing.expires_at) : new Date(Date.now() + 3600_000),
+              },
+            });
+          } else {
+            setSessionState({ status: 'error', message: 'La sesión no existe o ya no está disponible.' });
+          }
+        } catch (err: any) {
+          if (!mounted) return;
+          setSessionState({ status: 'error', message: err?.message ?? 'No se pudo recuperar la sesión.' });
+        }
+        return;
+      }
+
       setSessionState({ status: 'loading' });
       try {
         // createSession conecta con Supabase real.
         // El sessionId es generado por PostgreSQL (gen_random_uuid()).
         // El QR contendrá SOLO este UUID.
-        const response = await createSession(config, { idempotencyKey: idempotencyKeyRef.current });
+        const response = await createSession(config, {
+          idempotencyKey: idempotencyKeyRef.current,
+          existingEvaluationId: config.origenPreguntas === 'evaluacion_existente' ? config.evaluacionSeleccionadaId : null,
+          onProgress: (s) => { if (mounted) setStage(s); },
+        });
         if (!mounted) return;
         setSessionState({ status: 'success', data: { sessionId: response.sessionId, expiresAt: new Date(response.expiresAt) } });
         if (onSessionCreated) onSessionCreated(response.sessionId);
@@ -632,7 +836,12 @@ const CodigoQRView: React.FC<{
     initSession();
 
     return () => { mounted = false; };
-  }, [config, sessionState.status, onSessionCreated]);
+    // §21: 'config' intencionalmente fuera de las dependencias — re-ejecutar
+    // este efecto con el draft cambiado crearía una sesión nueva. La creación
+    // es una sola por visita al tab (idempotencyKeyRef), y una sesión ya
+    // creada se reabre vía presetSessionId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionState.status, presetSessionId]);
 
   React.useEffect(() => {
     if (sessionState.status !== 'success') return;
@@ -688,6 +897,10 @@ const CodigoQRView: React.FC<{
               <div className="flex flex-col items-center justify-center text-cyan-400 animate-pulse">
                 <span className="material-symbols-outlined text-6xl animate-spin mb-4">sync</span>
                 <p className="font-bold tracking-widest uppercase">Generando Sesión...</p>
+                <p className="text-sm text-cyan-300/80 mt-2 font-semibold">
+                  {stage ? STAGE_LABELS[stage] : 'Conectando con Supabase…'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1 font-normal">Guardando en Supabase, puede tardar unos segundos.</p>
               </div>
             )}
 
@@ -869,72 +1082,38 @@ const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationD
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {/* Row 1: Completed */}
-              <tr className="hover:bg-slate-700/30 transition-colors">
-                <td className="p-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
-                      AM
-                    </div>
-                    <span className="text-white font-medium text-sm">Ana Martínez</span>
-                  </div>
-                </td>
-                <td className="p-5">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-wider">
-                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                    Completado
-                  </span>
-                </td>
-                <td className="p-5 text-gray-400 text-sm font-medium">04:12</td>
-                <td className="p-5 text-gray-400 text-sm font-medium">3/3</td>
-                <td className="p-5 text-right">
-                  <span className="text-green-400 font-bold text-lg">20/20</span>
-                </td>
-              </tr>
-              {/* Row 2: In Progress */}
-              <tr className="hover:bg-slate-700/30 transition-colors bg-cyan-400/5 relative">
-                <td className="p-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
-                      CR
-                    </div>
-                    <span className="text-white font-medium text-sm">Carlos Ramírez</span>
-                  </div>
-                </td>
-                <td className="p-5">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyan-400/10 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">
-                    <span className="material-symbols-outlined text-[14px] animate-[spin_2s_linear_infinite]">sync</span>
-                    En Progreso
-                  </span>
-                </td>
-                <td className="p-5 text-gray-400 text-sm font-medium">03:45</td>
-                <td className="p-5 text-gray-400 text-sm font-medium">2/3</td>
-                <td className="p-5 text-right">
-                  <span className="text-gray-500 font-bold text-lg">--/20</span>
-                </td>
-              </tr>
-              {/* Row 3: Completed with errors */}
-              <tr className="hover:bg-slate-700/30 transition-colors">
-                <td className="p-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
-                      LG
-                    </div>
-                    <span className="text-white font-medium text-sm">Laura Gómez</span>
-                  </div>
-                </td>
-                <td className="p-5">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-wider">
-                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                    Completado
-                  </span>
-                </td>
-                <td className="p-5 text-gray-400 text-sm font-medium">04:58</td>
-                <td className="p-5 text-gray-400 text-sm font-medium">2/3</td>
-                <td className="p-5 text-right">
-                  <span className="text-cyan-400 font-bold text-lg">14/20</span>
-                </td>
-              </tr>
+              {/* FASE 1: sin mocks. Estudiantes reales en Fase 2 (WebSockets). */}
+              {students.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500 text-sm">
+                    Todavia no hay estudiantes conectados a esta sesion.
+                    <span className="block mt-1 text-xs text-gray-600">El tablero en vivo se activara en Fase 2.</span>
+                  </td>
+                </tr>
+              ) : (
+                students.map((st) => (
+                  <tr key={st.studentId} className="hover:bg-slate-700/30 transition-colors">
+                    <td className="p-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-cyan-400 font-bold text-xs border border-white/5">
+                          {st.studentName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="text-white font-medium text-sm">{st.studentName}</span>
+                      </div>
+                    </td>
+                    <td className="p-5">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyan-400/10 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">
+                        {st.status}
+                      </span>
+                    </td>
+                    <td className="p-5 text-gray-400 text-sm font-medium">--:--</td>
+                    <td className="p-5 text-gray-400 text-sm font-medium">{st.answered}/{st.totalQuestions}</td>
+                    <td className="p-5 text-right">
+                      <span className="text-gray-500 font-bold text-lg">{st.status === 'completed' ? st.score : '--'}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -974,8 +1153,15 @@ const PlaceholderView: React.FC<{ icon: string; label: string }> = ({ icon, labe
 ───────────────────────────────────────────── */
 export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
   const [activeTab, setActiveTab] = useState<Tab>('panel');
-  const currentUser = getStoredUser();
+  // Perfil desde el store (sincronizado con Supabase Auth), no solo sessionStorage GIS.
+  const currentUser = useAppStore((s) => s.user);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  /** Iniciar flujo de NUEVA sesión: limpiar cualquier preset anterior (§21). */
+  const handleNewSession = () => {
+    setActiveSessionId(null);
+    setActiveTab('informacion');
+  };
   
   // Estado global para la configuración de la sesión
   const [sessionConfig, setEvaluationDraft] = useState<EvaluationDraft>({
@@ -985,6 +1171,11 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
     fechaActivacion: new Date().toISOString().split('T')[0],
     duracionMinutos: 30,
     modeloSeleccionado: 'heart',
+    // FASE 1: por defecto se reutiliza un cuestionario existente de Supabase;
+    // el editor de preguntas nuevas del borrador queda disponible si no hay
+    // cuestionarios o el profesor lo elige explícitamente.
+    origenPreguntas: 'evaluacion_existente',
+    evaluacionSeleccionadaId: null,
     preguntas: [
       {
         id: '1',
@@ -1116,11 +1307,12 @@ export const Evaluation: React.FC<EvaluationProps> = ({ onExit }) => {
         {/* Glow decorativo */}
         <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
-        {activeTab === 'panel'        && <PanelView onNewSession={() => setActiveTab('informacion')} />}
+        {activeTab === 'panel'        && <PanelView onNewSession={handleNewSession} onOpenSessionQR={(sessionId) => { setActiveSessionId(sessionId); setActiveTab('codigo_qr'); }} />}
         {activeTab === 'informacion'  && <InformacionView onNext={() => setActiveTab('modelo')} config={sessionConfig} setConfig={setEvaluationDraft} />}
         {activeTab === 'modelo'       && <ModeloView onNext={() => setActiveTab('cuestionario')} onCancel={() => setActiveTab('informacion')} config={sessionConfig} setConfig={setEvaluationDraft} />}
-        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => setActiveTab('codigo_qr')} config={sessionConfig} setConfig={setEvaluationDraft} />}
-        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} config={sessionConfig} onRetry={() => setActiveTab('cuestionario')} onSessionCreated={setActiveSessionId} />}
+        {/* Nueva creación: limpiar preset para que CodigoQRView cree (no reutilice) la sesión (§21). */}
+        {activeTab === 'cuestionario' && <CuestionarioView onNext={() => { setActiveSessionId(null); setActiveTab('codigo_qr'); }} config={sessionConfig} setConfig={setEvaluationDraft} />}
+        {activeTab === 'codigo_qr'    && <CodigoQRView onNavigateToStats={() => setActiveTab('estadisticas')} config={sessionConfig} onRetry={() => setActiveTab('cuestionario')} onSessionCreated={setActiveSessionId} presetSessionId={activeSessionId} />}
         {activeTab === 'estadisticas' && <EstadisticasView sessionId={activeSessionId} config={sessionConfig} />}
       </main>
     </div>

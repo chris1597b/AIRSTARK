@@ -99,6 +99,11 @@ Base URL: `https://api.airstark.dev/api/v1` (HTTPS obligatorio).
   - **Auth:** Ninguna en Fase 1.
   - **Restricción Estricta:** Rate limiting, payload mínimo. **NUNCA** devolver información privada, `isCorrect`, `studentToken`, `score` individual o datos del profesor (solo lo estrictamente necesario). Cache-Control: no-store.
 
+### 8.4.1. Implementación Supabase-nativa del GET de sesión (sin backend intermedio)
+Mientras no exista el backend NestJS, el `GET /sessions/{sessionId}` se sirve con la función `public.get_unity_session_payload(uuid)` (migración `0003_unity_payload.sql`), invocada por Unity vía `POST /rest/v1/rpc/get_unity_session_payload` con la anon key. Una sola llamada devuelve `{ SessionId, Status, ExpiresAt, Session, SessionConfig, QuizConfig, ARConfig, Questions }` con la forma exacta de los JSON de referencia (`sessions.json`, `configs_sess_*.json`, `questions_sess_*.json`). Las columnas/tablas nuevas (`questions.feedback_text/target_element_id/ar_placement`, `sessions.teacher_name/version/allow_offline/objectives`, `session_configs`) son solo aditivas y se auto-pueblan con defaults, así que toda sesión existente devuelve un payload válido. El frontend web escribe `teacher_name` al crear; la fila de `session_configs` se crea por trigger.
+- **ENMIENDA a §8.4:** el payload incluye `CorrectOptionIndex` porque Unity da feedback inmediato en el dispositivo (`QuizConfig.EnableImmediateFeedback: true`). Protección: UUID inaudivinable como capability (sin SELECT directo ni enumeración), función otorgada solo a `anon`/`authenticated`, y rate limiting a nivel de proyecto. Cuando el backend valide respuestas en servidor, este campo podrá suprimirse.
+- **Cliente web de referencia:** `getUnitySessionPayload()` en `src/features/evaluation/services/unityPayloadService.ts` (tipos PascalCase idénticos a los JSON).
+
 ### 8.5. Conectar Estudiante (Unity)
 * **`POST /sessions/{sessionId}/connect`**
   - **Auth:** No requiere autenticación inicial.

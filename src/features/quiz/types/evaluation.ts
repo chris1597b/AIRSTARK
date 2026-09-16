@@ -69,6 +69,14 @@ export interface EvaluationDraft {
   duracionMinutos: number;
   modeloSeleccionado: string; // 'heart' | 'brain' | 'lungs' | 'kidneys'
   preguntas: EvaluationQuestion[];
+  /**
+   * Origen de las preguntas: reutilizar un cuestionario existente en Supabase
+   * ('evaluacion_existente') o crear uno nuevo con el editor del borrador
+   * ('borrador_nuevo'). FASE 1: por defecto 'evaluacion_existente'.
+   */
+  origenPreguntas: 'evaluacion_existente' | 'borrador_nuevo';
+  /** Evaluación existente seleccionada (solo cuando origenPreguntas = 'evaluacion_existente'). */
+  evaluacionSeleccionadaId: string | null;
 }
 
 // ==========================================

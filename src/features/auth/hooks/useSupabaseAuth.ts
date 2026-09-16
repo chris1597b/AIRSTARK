@@ -40,7 +40,18 @@ export function useSupabaseAuth() {
   }, [setUser, setAuthenticated, setAuthChecking]);
 
   const loginWithGoogle = async () => {
-    await signInWithGoogleSupabase();
+    try {
+      await signInWithGoogleSupabase();
+    } catch (err: any) {
+      // §29: nunca exponer el error técnico crudo; el llamador lo muestra.
+      const raw = err?.message ?? '';
+      if (/provider/i.test(raw) && /not (enabled|found|supported)/i.test(raw)) {
+        throw new Error(
+          'No se pudo iniciar sesión con Google: el proveedor no está habilitado en el servidor de autenticación.'
+        );
+      }
+      throw new Error('No se pudo iniciar sesión con Google. Verifica tu conexión e inténtalo de nuevo.');
+    }
   };
 
   const logout = async () => {

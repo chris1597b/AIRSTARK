@@ -4,10 +4,16 @@
  *
  * FUNCIONES DISPONIBLES:
  *   loginWithGoogle(credential)    → POST /api/v1/auth/login   [IMPLEMENTADO/MOCK]
- *   createEvaluationSession(draft) → POST /api/v1/sessions     [IMPLEMENTADO/MOCK]
+ *   logout()                       → POST /api/v1/auth/logout
  *
- * PENDIENTES (cuando Backend confirme los endpoints):
- *   getSession(sessionId)          → GET  /api/v1/sessions/{id}
+ * NOTA FASE 1: la creación y lectura de sesiones NO pasa por aquí — se realiza
+ * vía Supabase (features/evaluation/services/sessionService.ts), que es la
+ * capa activa. Las funciones de sesión de este archivo nunca se implementaron
+ * contra un backend real y fueron retiradas (código muerto), junto con su
+ * mapper (evaluationMapper.ts).
+ *
+ * PENDIENTES (cuando Backend confirme los endpoints — FASE 2):
+ *   getSession(sessionId)          → GET  /api/v1/sessions/{id}      (Unity)
  *   getStatistics(sessionId)       → GET  /api/v1/sessions/{id}/statistics
  *   endSession(sessionId)          → POST /api/v1/sessions/{id}/end
  *
@@ -19,13 +25,10 @@
  */
 
 import {
-  EvaluationDraft,
-  CreateSessionResponse,
   AuthResponse,
   AuthenticatedUser,
   ApiErrorCode,
 } from '../types/evaluation';
-import { mapDraftToCreateSessionRequest } from './evaluationMapper.ts';
 import { getStoredToken, storeAirStarkSession, storeMockSession } from '../../auth/services/googleAuth.ts';
 
 // ── Configuración desde variables de entorno ─────────────────────────────────
@@ -182,82 +185,13 @@ export async function logout(): Promise<void> {
   }
 }
 
-/**
- * Crea una sesión de evaluación en el Backend.
- *
- * Flujo:
- *   1. Verifica que haya un token AIRSTARK activo.
- *   2. Transforma EvaluationDraft → CreateSessionRequest via mapper.
- *   3. POST /api/v1/sessions con Authorization: Bearer <AIRSTARK token>.
- *   4. Devuelve { sessionId, status, expiresAt }.
- *
- * El sessionId es generado EXCLUSIVAMENTE por el Backend.
- * En modo mock, se genera localmente SOLO para validar la UI.
- *
- * @throws {ApiError} si no autenticado, red falla o Backend responde error.
- */
-export async function createEvaluationSession(
-  draft: EvaluationDraft
-): Promise<CreateSessionResponse> {
-  const payload = mapDraftToCreateSessionRequest(draft);
-
-  if (USE_MOCK_API) {
-    if (import.meta.env.DEV) {
-      console.warn(
-        '[AIRSTARK] ⚠️ Sesión en MODO MOCK (VITE_USE_MOCK_API=true)\n' +
-        'El sessionId generado NO es una sesión real del Backend.\n' +
-        'Unity NO puede recuperar datos con este ID.\n' +
-        'Configura VITE_API_BASE_URL y VITE_USE_MOCK_API=false para producción.'
-      );
-    }
-    return simulateMockSessionResponse();
-  }
-
-  return apiFetch<CreateSessionResponse>('/api/v1/sessions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      // Authorization header ya no se envía; se confía en la cookie HttpOnly
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
 // ── PENDIENTES — Conectar cuando el Backend confirme los endpoints ─────────────
 //
-// export async function getSession(sessionId: string): Promise<SessionInfoForAR> {
-//   // GET /api/v1/sessions/{sessionId}
-//   // Consumido por Unity; documentado en API_CONTRACT.md
-// }
+// FASE 1: la creación/lectura de sesiones vive en Supabase
+// (features/evaluation/services/sessionService.ts).
 //
-// export async function getStatistics(sessionId: string): Promise<unknown> {
-//   // GET /api/v1/sessions/{sessionId}/statistics
-//   // Requiere token AIRSTARK + verificación teacher_id == authenticated_user.id
-// }
+// FASE 2 (cuando exista backend intermedio o Edge Functions para Unity):
+//   getSession(sessionId)     → GET  /api/v1/sessions/{id}
+//   getStatistics(sessionId)  → GET  /api/v1/sessions/{id}/statistics
+//   endSession(sessionId)     → POST /api/v1/sessions/{id}/end
 //
-// export async function endSession(sessionId: string): Promise<void> {
-//   // POST /api/v1/sessions/{sessionId}/end
-//   // Propuesto para Fase 2 — ver API_CONTRACT.md §Propuestos
-// }
-
-// ── Mock interno ──────────────────────────────────────────────────────────────
-
-function simulateMockSessionResponse(): Promise<CreateSessionResponse> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const mockSessionId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : '00000000-0000-0000-0000-000000000000';
-
-      const expires = new Date();
-      expires.setHours(expires.getHours() + 2);
-
-      resolve({
-        sessionId: mockSessionId,
-        status: 'waiting',
-        expiresAt: expires.toISOString(),
-      });
-    }, 1500);
-  });
-}

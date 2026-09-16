@@ -17,7 +17,7 @@
  * REGLA: auth.uid() de Supabase = fuente de verdad para ownership en RLS
  */
 
-import { supabase } from '../../../services/supabaseClient.ts';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../../../services/supabaseClient.ts';
 import type { User, Session } from '@supabase/supabase-js';
 import type { AuthenticatedUser } from '../../quiz/types/evaluation.ts';
 
@@ -41,6 +41,29 @@ export function mapSupabaseUserToAuthenticatedUser(user: User): AuthenticatedUse
   };
 }
 
+// ── Configuración del servidor de auth (detección de providers) ─────────────
+
+/**
+ * Consulta la configuración pública del servidor de auth de Supabase
+ * (endpoint /auth/v1/settings — público, no expone secretos).
+ *
+ * Preflight para el login: si el provider de Google está deshabilitado en el
+ * dashboard de Supabase, signInWithOAuth construye la URL pero el navegador
+ * puede no navegar nunca ni reportar error (spinner infinito). Con esta
+ * consulta mostramos el problema real: es configuración del dashboard.
+ */
+export async function isGoogleProviderEnabled(): Promise<boolean> {
+  try {
+    const settingsUrl = new URL('/auth/v1/settings', supabaseUrl).toString();
+    const res = await fetch(settingsUrl, { headers: { apikey: supabaseAnonKey } });
+    if (!res.ok) return true; // endpoint caído → no bloquear el flujo normal
+    const settings = (await res.json()) as { external?: Record<string, boolean> };
+    return settings?.external?.google !== false;
+  } catch {
+    return true; // fallo de red → dejar que signInWithOAuth siga su curso
+  }
+}
+
 // ── Sign In con Google OAuth via Supabase ────────────────────────────────────
 
 /**
@@ -52,6 +75,12 @@ export function mapSupabaseUserToAuthenticatedUser(user: User): AuthenticatedUse
  *   → http://localhost:5173 (desarrollo)
  *
  * En producción, agregar el dominio de producción.
+ *
+ * NOTA: esta función SOLO lanza el error de la llamada en sí. Si el provider
+ * está deshabilitado en el dashboard, la redirección puede no ocurrir nunca;
+ * el llamador (AuthScreen) es responsable de: (1) preflight con
+ * isGoogleProviderEnabled() y (2) un watchdog que restaure el estado si en
+ * unos segundos no hubo navegación.
  */
 export async function signInWithGoogleSupabase(): Promise<void> {
   const { error } = await supabase.auth.signInWithOAuth({

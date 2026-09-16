@@ -19,6 +19,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
+// Exportadas SOLO para consultas públicas a /auth/v1/settings (preflight de
+// providers en supabaseAuth.ts). La anon key es pública por diseño; NUNCA
+// colocar aquí una service_role key.
+export { supabaseUrl, supabaseAnonKey };
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     '[AIRSTARK] Supabase no configurado.\n' +
@@ -74,9 +79,12 @@ export type Database = {
           evaluation_id: string;
           question_text: string;
           question_order: number;
+          feedback_text: string;
+          target_element_id: string | null;
+          ar_placement: unknown;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['questions']['Row'], 'id' | 'created_at'>;
+        Insert: Omit<Database['public']['Tables']['questions']['Row'], 'id' | 'created_at' | 'feedback_text' | 'target_element_id' | 'ar_placement'> & Partial<Pick<Database['public']['Tables']['questions']['Row'], 'feedback_text' | 'target_element_id' | 'ar_placement'>>;
         Update: Partial<Database['public']['Tables']['questions']['Insert']>;
       };
       options: {
@@ -102,13 +110,37 @@ export type Database = {
           status: 'waiting' | 'active' | 'completed' | 'expired' | 'cancelled';
           model_3d_id: string | null;
           created_by: string;
+          teacher_name: string | null;   // nombre visible del profesor (payload Unity)
+          version: string;
+          allow_offline: boolean;
+          objectives: unknown;           // [{ Id, Description, IsOptional }]
           idempotency_key: string;
           created_at: string;
           updated_at: string;
           expires_at: string | null;
         };
-        Insert: Omit<Database['public']['Tables']['sessions']['Row'], 'id' | 'created_at' | 'updated_at' | 'expires_at'>;
+        Insert: Omit<Database['public']['Tables']['sessions']['Row'], 'id' | 'created_at' | 'updated_at' | 'expires_at' | 'teacher_name' | 'version' | 'allow_offline' | 'objectives'> & Partial<Pick<Database['public']['Tables']['sessions']['Row'], 'teacher_name' | 'version' | 'allow_offline' | 'objectives'>>;
         Update: Partial<Pick<Database['public']['Tables']['sessions']['Row'], 'status' | 'updated_at'>>;
+      };
+      session_configs: {
+        Row: {
+          session_id: string;
+          accent_color_hex: string;
+          required_accuracy_percentage: number;
+          enable_certificate_generation: boolean;
+          quiz_time_limit_seconds: number;
+          quiz_allow_backtrack: boolean;
+          quiz_shuffle_questions: boolean;
+          quiz_enable_immediate_feedback: boolean;
+          ar_detection_mode: string;
+          ar_initial_model_scale: number;
+          ar_enable_depth_sensing: boolean;
+          ar_show_plane_markers: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['session_configs']['Row'], 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['session_configs']['Insert']>;
       };
     };
   };
