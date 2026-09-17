@@ -760,6 +760,52 @@ const CuestionarioView: React.FC<{ onNext: () => void; config: EvaluationDraft; 
 };
 
 /* ─────────────────────────────────────────────
+   Mini-componente: Copiar ID con feedback
+───────────────────────────────────────────── */
+const CopyIdButton: React.FC<{ sessionId: string }> = ({ sessionId }) => {
+  const [copied, setCopied] = React.useState(false);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(sessionId);
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback para navegadores sin Clipboard API
+      const el = document.createElement('textarea');
+      el.value = sessionId;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  React.useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
+        copied
+          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+          : 'bg-cyan-400/10 text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/20'
+      }`}
+    >
+      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+        {copied ? 'check' : 'content_copy'}
+      </span>
+      {copied ? '¡Copiado!' : 'Copiar'}
+    </button>
+  );
+};
+
+/* ─────────────────────────────────────────────
    Sub-vista: Código QR
 ───────────────────────────────────────────── */
 const CodigoQRView: React.FC<{ 
@@ -781,11 +827,15 @@ const CodigoQRView: React.FC<{
     typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString()
   );
 
+  const hasInitializedRef = React.useRef(false);
+
   React.useEffect(() => {
     let mounted = true;
     
     const initSession = async () => {
-      if (sessionState.status !== 'idle') return;
+      // Prevenir ejecución doble
+      if (hasInitializedRef.current) return;
+      hasInitializedRef.current = true;
 
       // §21 REUTILIZACIÓN DEL QR: si llega un sessionId de una sesión YA creada
       // (reabierta desde el Panel), NO se crea otra sesión: se recupera de
@@ -931,6 +981,17 @@ const CodigoQRView: React.FC<{
             )}
           </div>
           
+          {/* Session ID visible + acciones */}
+          {sessionState.status === 'success' && (
+            <div className="bg-gray-900/60 border border-white/10 rounded-lg px-4 py-3 flex items-center justify-between gap-3 w-full max-w-xl mx-auto">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">ID:</span>
+                <code className="text-xs text-cyan-400 font-mono truncate select-all">{sessionState.data.sessionId}</code>
+              </div>
+              <CopyIdButton sessionId={sessionState.data.sessionId} />
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full pt-4">
             <button 
               disabled={sessionState.status !== 'success'}

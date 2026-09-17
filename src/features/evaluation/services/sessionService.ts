@@ -173,26 +173,141 @@ export async function createSession(
   if (!options?.idempotencyKey || typeof options.idempotencyKey !== 'string') {
     throw new SessionServiceError('Falta la clave de idempotencia de la operación.', 'VALIDATION_ERROR');
   }
-  const userPromise = requireAuthenticatedUser();
   validateDraft(draft, options.existingEvaluationId ?? null);
   const notify = options.onProgress ?? (() => {});
 
-  // ── Paso 0: Idempotencia temprana ──────────────────────────────────────────
-  // Si esta operación lógica ya creó una sesión (doble-click / retry / timeout),
-  // devolverla SIN crear otra evaluación ni otras preguntas huérfanas.
-  // La verificación de usuario y la búsqueda corren EN PARALELO (1 RTT).
+  // ── PATH RÁPIDO: RPC atómica (1 RTT ~200–300 ms) ──────────────────────────
+  // La función `create_session_atomic` ejecuta TODO el flujo de creación
+  // (idempotencia, evaluación, preguntas, opciones, sesión) en una sola
+  // transacción PostgreSQL. Si la RPC no existe (migración 0004 no aplicada),
+  // se cae al path legacy multi-RTT como fallback de compatibilidad.
+  notify('auth');
+  const activationDate = resolveActivationDate(draft.fechaActivacion);
+  notify('evaluation');
+
+  // Preparar preguntas como JSONB (solo cuando se crea cuestionario nuevo)
+  const questionsPayload = (!options.existingEvaluationId && draft.preguntas.length > 0)
+    ? draft.preguntas.map((q) => ({
+        prompt: q.prompt,
+        options: q.options.map((o) => ({
+          text: o.text,
+          isCorrect: o.isCorrect,
+        })),
+      }))
+    : null;
+
+  notify('questions');
+  notify('session');
+
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    'create_session_atomic',
+    {
+      p_name: draft.nombre,
+      p_description: draft.descripcion || null,
+      p_activation_date: activationDate,
+      p_duration_minutes: draft.duracionMinutos,
+      p_model_key: draft.modeloSeleccionado || null,
+      p_questions: questionsPayload,
+      p_idempotency_key: options.idempotencyKey,
+      p_existing_eval_id: options.existingEvaluationId ?? null,
+      p_teacher_name: null, // La RPC obtiene el nombre del teacher_name column; el fallback de auth.users cubre esto.
+    }
+  );
+
+  // Si la RPC no existe en el servidor (migración 0004 no aplicada),
+  // código PostgreSQL 42883 = undefined_function.
+  if (rpcError && rpcError.code === '42883') {
+    console.warn('[AIRSTARK] RPC create_session_atomic no existe; usando path legacy (aplica la migración 0004).');
+    return createSessionLegacy(draft, options, notify);
+  }
+
+  if (rpcError) {
+    console.error('[AIRSTARK] Error en RPC create_session_atomic:', rpcError);
+    // Traducir errores PostgreSQL a mensajes comprensibles
+    if (rpcError.code === '42501') {
+      throw new SessionServiceError(
+        'No tienes permisos para crear esta sesión. Inicia sesión de nuevo.',
+        'FORBIDDEN'
+      );
+    }
+    if (rpcError.code === '23514') {
+      throw new SessionServiceError(
+        'Los datos de la sesión no son válidos. Revisa la duración y el estado.',
+        'VALIDATION_ERROR'
+      );
+    }
+    if (rpcError.code === 'P0002' || rpcError.message?.includes('EVALUATION_NOT_FOUND')) {
+      throw new SessionServiceError(
+        'La evaluación seleccionada no existe o no te pertenece.',
+        'EVALUATION_NOT_FOUND'
+      );
+    }
+    throw new SessionServiceError(
+      rpcError.message || 'No se pudo crear la sesión de evaluación.',
+      'SESSION_CREATE_ERROR'
+    );
+  }
+
+  // Debug: log raw RPC response shape for diagnostics
+  console.info('[AIRSTARK] RPC rpcResult raw:', JSON.stringify(rpcResult));
+
+  if (!rpcResult) {
+    throw new SessionServiceError('La sesión no devolvió datos.', 'SESSION_CREATE_ERROR');
+  }
+
+  // El RPC devuelve JSONB con { sessionId, status, expiresAt }.
+  // PostgREST puede devolver el JSON directamente o envuelto — manejamos ambos.
+  const result = rpcResult as Record<string, unknown>;
+  const sessionId = (result.sessionId ?? result.session_id ?? result.sessionid) as string | undefined;
+  const status = (result.status ?? 'waiting') as string;
+  const expiresAt = (result.expiresAt ?? result.expires_at ?? result.expiresat) as string | undefined;
+
+  if (!sessionId) {
+    console.error('[AIRSTARK] RPC devolvió datos sin sessionId:', result);
+    throw new SessionServiceError(
+      'La sesión se creó pero no devolvió un ID válido. Contacta al administrador.',
+      'SESSION_CREATE_ERROR'
+    );
+  }
+
+  console.info('[AIRSTARK] Sesión creada vía RPC atómica:', sessionId);
+
+  return {
+    sessionId,
+    status: status as SessionStatus,
+    expiresAt: expiresAt ?? new Date().toISOString(),
+  };
+}
+
+// ── Helper: resolver activation_date ─────────────────────────────────────────
+
+function resolveActivationDate(fechaActivacion: string): string {
+  if (fechaActivacion.includes('T')) return fechaActivacion;
+  return new Date(`${fechaActivacion}T00:00:00.000Z`).getTime() <= Date.now()
+    ? new Date().toISOString()         // fecha de hoy/pasada → usar ahora
+    : `${fechaActivacion}T00:00:00.000Z`; // fecha futura → mantener medianoche
+}
+
+// ── Fallback legacy: flujo multi-RTT (compatibilidad sin migración 0004) ─────
+
+async function createSessionLegacy(
+  draft: EvaluationDraft,
+  options: CreateSessionOptions,
+  notify: (stage: CreateSessionStage) => void
+): Promise<CreateSessionResponse> {
+  // ── Paso 0: Auth + Idempotencia temprana (paralelo) ────────────────────────
   const [authUser, { data: already }] = await Promise.all([
-    userPromise,
+    requireAuthenticatedUser(),
     supabase
       .from('sessions')
       .select('id, status, expires_at')
-      .eq('idempotency_key', options.idempotencyKey)
+      .eq('idempotency_key', options.idempotencyKey!)
       .maybeSingle(),
   ]);
   const userId = authUser.id;
   notify('auth');
   if (already) {
-    console.info('[AIRSTARK] Sesión ya existente (idempotencia temprana):', already.id);
+    console.info('[AIRSTARK] Sesión ya existente (idempotencia temprana, legacy):', already.id);
     return {
       sessionId: already.id,
       status: already.status as SessionStatus,
@@ -200,12 +315,7 @@ export async function createSession(
     };
   }
 
-  // ── Paso 1: Resolver evaluación (reutilizar existente o crear una nueva) ────
-  // Evaluation = contenido académico; Session = ejecución programada.
-  // Reutilizar una evaluación existente evita duplicar el cuestionario en DB.
-  //
-  // RENDIMIENTO: la resolución del modelo 3D es independiente de la evaluación,
-  // así que se lanza EN PARALELO y se espera junto con el insert (1 RTT).
+  // ── Paso 1: Resolver evaluación + modelo 3D en paralelo ────────────────────
   const model3dPromise: Promise<string | null> = (async () => {
     if (!draft.modeloSeleccionado) return null;
     const { data: modelData } = await supabase
@@ -229,9 +339,6 @@ export async function createSession(
         .single(),
       model3dPromise,
     ]);
-
-    // RLS garantiza que solo se resuelvan evaluaciones propias: si la fila no
-    // es del dueño, PostgREST devuelve PGRST116 (0 filas), no un 403 explícito.
     if (existingError || !existing) {
       throw new SessionServiceError(
         'La evaluación seleccionada no existe o no te pertenece.',
@@ -254,9 +361,8 @@ export async function createSession(
         .single(),
       model3dPromise,
     ]);
-
     if (evalResult.error || !evalResult.data) {
-      console.error('[AIRSTARK] Error al crear evaluación:', evalResult.error);
+      console.error('[AIRSTARK] Error al crear evaluación (legacy):', evalResult.error);
       throw new SessionServiceError(
         'No se pudo crear la evaluación. Verifica tu conexión.',
         'EVALUATION_CREATE_ERROR'
@@ -266,12 +372,7 @@ export async function createSession(
     model3dId = resolvedModel;
   }
 
-  // ── Paso 2: Insertar preguntas y opciones (SOLO al crear evaluación nueva) ───
-  // Al reutilizar una evaluación existente NO se insertan las preguntas del
-  // borrador: hacerlo duplicaría el cuestionario en cada sesión creada.
-  // RENDIMIENTO: las preguntas son independientes entre sí → se insertan EN
-  // PARALELO (cada una con sus opciones en secuencia). Para 1 pregunta el
-  // coste es 2 RTT en vez de 2×N en serie.
+  // ── Paso 2: Insertar preguntas y opciones (SOLO evaluación nueva) ──────────
   if (!options.existingEvaluationId) {
     notify('questions');
     await Promise.all(
@@ -287,19 +388,17 @@ export async function createSession(
           .single();
 
         if (questionError || !questionData) {
-          console.error('[AIRSTARK] Error al crear pregunta:', questionError);
           throw new SessionServiceError(
             `No se pudo crear la pregunta ${qIndex + 1}.`,
             'QUESTION_CREATE_ERROR'
           );
         }
 
-        // Insertar opciones de esta pregunta
         const optionsToInsert = pregunta.options.map((opt, oIndex) => ({
           question_id: questionData.id,
           option_text: opt.text,
           option_order: oIndex,
-          is_correct: opt.isCorrect,  // Se almacena en DB; NUNCA se expondrá a Unity
+          is_correct: opt.isCorrect,
         }));
 
         const { error: optionsError } = await supabase
@@ -307,7 +406,6 @@ export async function createSession(
           .insert(optionsToInsert);
 
         if (optionsError) {
-          console.error('[AIRSTARK] Error al crear opciones:', optionsError);
           throw new SessionServiceError(
             `No se pudieron crear las opciones de la pregunta ${qIndex + 1}.`,
             'OPTIONS_CREATE_ERROR'
@@ -317,16 +415,9 @@ export async function createSession(
     );
   }
 
-  // ── Paso 3: model_3d_id (ya resuelto en paralelo en el Paso 1) ───────────────
-  // Sin consulta adicional: se reutiliza el valor obtenido junto con la
-  // evaluación para no sumar otro viaje de ida y vuelta a Supabase.
-
-  // ── Paso 4: Insertar sesión ────────────────────────────────────────────────
-  // activation_date: combinar fecha con hora de inicio del día si solo hay fecha
+  // ── Paso 3: Insertar sesión ────────────────────────────────────────────────
   notify('session');
-  const activationDate = draft.fechaActivacion.includes('T')
-    ? draft.fechaActivacion
-    : `${draft.fechaActivacion}T00:00:00.000Z`;
+  const activationDate = resolveActivationDate(draft.fechaActivacion);
 
   const sessionPayload: Record<string, unknown> = {
     evaluation_id: evaluationId,
@@ -334,10 +425,10 @@ export async function createSession(
     description: draft.descripcion || null,
     activation_date: activationDate,
     duration_minutes: draft.duracionMinutos,
-    status: 'waiting',          // Siempre empieza en waiting según el contrato
+    status: 'waiting',
     model_3d_id: model3dId,
-    created_by: userId,          // Derivado de auth.uid(), nunca del formulario
-    teacher_name: authUser.displayName, // Nombre visible (payload Unity)
+    created_by: userId,
+    teacher_name: authUser.displayName,
     idempotency_key: options.idempotencyKey,
   };
 
@@ -351,11 +442,8 @@ export async function createSession(
       .single();
     sessionData = first.data as typeof sessionData;
     sessionError = first.error;
-    // Compatibilidad: si la migración 0003 aún no se aplicó en vivo, la columna
-    // teacher_name no existe → reintentar UNA vez sin ella (el Teacher del
-    // payload Unity usa entonces el fallback de auth.users en la RPC).
     if (sessionError && isMissingColumnError(sessionError, 'teacher_name')) {
-      console.warn('[AIRSTARK] teacher_name no existe en vivo; reintentando sin la columna (aplica la migración 0003).');
+      console.warn('[AIRSTARK] teacher_name no existe en vivo (legacy); reintentando sin la columna.');
       delete sessionPayload.teacher_name;
       const retry = await supabase
         .from('sessions')
@@ -367,18 +455,14 @@ export async function createSession(
     }
   }
 
-  // ── Idempotencia: si ya existe una sesión con este key, devolver la existente ──
   if (sessionError) {
-    // Código PostgreSQL 23505 = unique_violation (idempotency_key duplicado)
     if (sessionError.code === '23505') {
       const { data: existingSession } = await supabase
         .from('sessions')
         .select('id, status, expires_at')
-        .eq('idempotency_key', options.idempotencyKey)
+        .eq('idempotency_key', options.idempotencyKey!)
         .single();
-
       if (existingSession) {
-        console.info('[AIRSTARK] Sesión ya existente (idempotencia):', existingSession.id);
         return {
           sessionId: existingSession.id,
           status: existingSession.status as SessionStatus,
@@ -386,9 +470,7 @@ export async function createSession(
         };
       }
     }
-
-    console.error('[AIRSTARK] Error al crear sesión:', sessionError);
-    // Traducir errores técnicos de PostgreSQL/RLS a mensajes comprensibles (§29).
+    console.error('[AIRSTARK] Error al crear sesión (legacy):', sessionError);
     if (sessionError.code === '42501') {
       throw new SessionServiceError(
         'No tienes permisos para crear esta sesión. Inicia sesión de nuevo.',

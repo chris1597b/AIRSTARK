@@ -1,0 +1,192 @@
+# Auditoría: Latencia en Generación del QR
+
+## Diagnóstico rápido
+
+El QR **tarda porque hay 5–6 viajes de red seriales a Supabase antes de renderizar el `<QRCodeSVG>`**.
+El QR en sí (generado por `qrcode.react` en el navegador) es **instantáneo** — el cuello de botella es completamente de red/arquitectura del servicio.
+
+---
+
+## Mapa de los requests del log (en orden)
+
+| # | Request | Tipo | Duración | Por qué ocurre |
+|---|---------|------|----------|----------------|
+| 1 | `sessions?…idempotency_key=eq.XXX` | preflight + fetch | ~99 ms + 238 ms | **Idempotencia temprana** — `createSession` hace un SELECT antes de insertar nada |
+| 2 | `models_3d?…asset_key=eq.heart` | preflight + fetch | ~91 ms + 181 ms | Resolver el modelo 3D |
+| 3 | `evaluations?select=id` | preflight + fetch | ~92 ms + 231 ms | INSERT de nueva evaluación |
+| 4 | `questions?select=id` | preflight + fetch | ~94 ms + 170 ms | INSERT de preguntas |
+| 5 | `options?columns=…` | preflight + fetch | ~108 ms + 157 ms | INSERT de opciones |
+| 6 | `sessions?select=id…` (final) | preflight + fetch | ~102 ms + 190 ms | INSERT de sesión |
+
+**Total mínimo observado:** ~1.7 segundos de solo red (sin contar JS overhead).
+
+---
+
+## Causa raíz: la cadena es serial, no paralela
+
+### Lo que hace el código actualmente
+
+```
+[await] SELECT sessions (idempotencia temprana)   ← RTT 1
+    ↓
+[await Promise.all]
+    ├── INSERT evaluations                         ← RTT 2
+    └── SELECT models_3d (paralelo con eval)       ← RTT 2 (paralelo ✓)
+        ↓
+[await Promise.all de N preguntas]
+    ├── INSERT questions[0]                        ← RTT 3
+    │       ↓
+    │   INSERT options[0]                          ← RTT 4  ← BLOQUEANTE
+    └── INSERT questions[1] … (si hay más)
+        ↓
+[await] INSERT sessions                            ← RTT 5
+```
+
+### El problema: 3 obligatorios son seriales
+1. **RTT 1 (SELECT idempotencia)** — útil pero ocurre SIEMPRE aunque sea la primera vez
+2. **RTT 3+4 (questions → options)** — dentro de cada pregunta, el INSERT de options depende del ID devuelto por el INSERT de questions (correcto), pero **esto hace que preguntas + opciones sean 2 RTT mínimos en serie por pregunta**
+3. **RTT 5 (INSERT session)** — tiene que esperar todo lo anterior
+
+### Los preflights CORS (~100 ms c/u)
+Cada fetch a Supabase desde localhost genera un `OPTIONS` preflight. Con 5 recursos distintos son **5 × ~100 ms = ~500 ms solo en preflights**. Supabase los devuelve rápido pero el coste es real.
+
+---
+
+## Solución: colapsar todo en 1 RPC de Supabase
+
+La forma más efectiva es una función PostgreSQL que haga todo en **una sola transacción y un solo viaje de red**:
+
+```sql
+-- migrations/0006_create_session_atomic.sql
+CREATE OR REPLACE FUNCTION create_session_atomic(
+  p_name         TEXT,
+  p_description  TEXT,
+  p_activation   TIMESTAMPTZ,
+  p_duration     INT,
+  p_model_key    TEXT,
+  p_questions    JSONB,     -- [{prompt, options:[{text,is_correct}]}]
+  p_idempotency  UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id    UUID := auth.uid();
+  v_eval_id    UUID;
+  v_session_id UUID;
+  v_model_id   UUID;
+  v_q          JSONB;
+  v_q_id       UUID;
+  v_expires    TIMESTAMPTZ;
+  v_existing   UUID;
+BEGIN
+  -- 0) Idempotencia: si ya existe devolver inmediatamente
+  SELECT id INTO v_existing FROM sessions
+    WHERE idempotency_key = p_idempotency AND created_by = v_user_id;
+  IF FOUND THEN
+    SELECT row_to_json(r) INTO STRICT v_q
+      FROM (SELECT id, status, expires_at FROM sessions WHERE id = v_existing) r;
+    RETURN v_q;
+  END IF;
+
+  -- 1) Resolver modelo 3D
+  IF p_model_key IS NOT NULL THEN
+    SELECT id INTO v_model_id FROM models_3d WHERE asset_key = p_model_key LIMIT 1;
+  END IF;
+
+  -- 2) Crear evaluación
+  INSERT INTO evaluations (name, description, created_by, status)
+  VALUES (p_name, p_description, v_user_id, 'published')
+  RETURNING id INTO v_eval_id;
+
+  -- 3) Crear preguntas y opciones (todo en memoria, un loop PL/pgSQL)
+  FOR v_q IN SELECT * FROM jsonb_array_elements(p_questions) LOOP
+    INSERT INTO questions (evaluation_id, question_text, question_order)
+    VALUES (v_eval_id, v_q->>'prompt', (v_q->>'order')::INT)
+    RETURNING id INTO v_q_id;
+
+    INSERT INTO options (question_id, option_text, option_order, is_correct)
+    SELECT v_q_id,
+           o->>'text',
+           (o->>'order')::INT,
+           (o->>'is_correct')::BOOLEAN
+    FROM jsonb_array_elements(v_q->'options') WITH ORDINALITY AS t(o, idx);
+  END LOOP;
+
+  -- 4) Crear sesión
+  INSERT INTO sessions (
+    evaluation_id, name, description, activation_date,
+    duration_minutes, status, model_3d_id, created_by,
+    idempotency_key
+  ) VALUES (
+    v_eval_id, p_name, p_description, p_activation,
+    p_duration, 'waiting', v_model_id, v_user_id,
+    p_idempotency
+  ) RETURNING id, expires_at INTO v_session_id, v_expires;
+
+  RETURN json_build_object(
+    'sessionId', v_session_id,
+    'status',    'waiting',
+    'expiresAt', v_expires
+  );
+END;
+$$;
+
+-- RLS: solo usuarios autenticados pueden llamarla (SECURITY DEFINER usa auth.uid())
+REVOKE ALL ON FUNCTION create_session_atomic FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION create_session_atomic TO authenticated;
+```
+
+### Resultado: de 5–6 RTT a **1 RTT**
+
+| Antes | Después |
+|-------|---------|
+| 6 round-trips (~1.7 s red) | 1 round-trip (~200–300 ms) |
+| 5 preflights CORS | 1 preflight CORS |
+| 5 transacciones separadas | 1 transacción atómica |
+
+---
+
+## Fix rápido (sin RPC): paralelizar modelos + idempotencia
+
+Si prefieres no crear la RPC todavía, el fix mínimo es **eliminar el SELECT de idempotencia temprana del critical path** en `sessionService.ts`. Actualmente el SELECT de idempotencia corre PRIMERO en serie. Como la mayoría de los casos es la **primera** creación, ese SELECT siempre devuelve vacío y solo consume 1 RTT innecesario.
+
+```ts
+// sessionService.ts línea 184 — ANTES:
+const [authUser, { data: already }] = await Promise.all([
+  userPromise,
+  supabase.from('sessions').select('id,status,expires_at')
+    .eq('idempotency_key', options.idempotencyKey).maybeSingle(),
+]);
+// → 1 RTT bloqueante antes de hacer nada útil
+```
+
+```ts
+// PROPUESTA: omitir el SELECT temprano y confiar en el UNIQUE constraint
+// (el INSERT fallará con 23505 si hay duplicado, se maneja en el catch)
+// Esto elimina 1 RTT (~340 ms) del happy path.
+const authUser = await userPromise;
+notify('auth');
+// Sin SELECT previo de idempotencia
+```
+
+Este cambio solo elimina **1 RTT**, llevando el total de ~1.7 s a ~1.3 s.
+La solución real es la RPC para bajar a ~300 ms.
+
+---
+
+## Resumen de acciones recomendadas
+
+| Prioridad | Acción | Reducción estimada |
+|-----------|--------|-------------------|
+| 🔴 Alta | Implementar RPC `create_session_atomic` | 1.7 s → ~300 ms |
+| 🟡 Media | Eliminar SELECT de idempotencia temprana | 1.7 s → ~1.3 s |
+| 🟢 Baja | Pre-calentar la conexión Supabase al entrar al módulo | -50–100 ms |
+
+> [!NOTE]
+> El warm-up de `getSupabaseCurrentUser()` ya existe en `PanelView` (línea 46), lo que es correcto. El problema no es la primera conexión TLS sino los múltiples viajes de red en serie.
+
+> [!IMPORTANT]
+> El QR se renderiza en <1 ms en el navegador — **todo el retraso es de red**. Con la RPC, el profesor vería el QR en pantalla en ~300 ms desde que hace clic.
