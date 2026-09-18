@@ -108,23 +108,26 @@ const cA = await rpc(sbAnon, 'student_connect', { p_session_id: SID, p_student_n
 const cB = await rpc(sbAnon, 'student_connect', { p_session_id: SID, p_student_name: 'María E2E', p_device_id: devB });
 check('connect Juan', cA.data?.ok === true, JSON.stringify(cA.data ?? cA.error).slice(0, 120));
 check('connect María', cB.data?.ok === true, '');
+if (!cA.data?.ok || !cB.data?.ok) {
+  console.log('RESULT: CONNECT FALLÓ — revisar salida y esquema vivo');
+  process.exit(1);
+}
 const tokA1 = cA.data.data.studentToken, idA = cA.data.data.studentId;
 const tokB = cB.data.data.studentToken, idB = cB.data.data.studentId;
 check('studentId diferentes', idA !== idB, '');
 check('tokens diferentes', tokA1 !== tokB, '');
 check('token opaco hex-64 (NO JWT)', /^[0-9a-f]{64}$/.test(tokA1) && !tokA1.includes('.'), tokA1.slice(0, 16) + '…');
 
-// ══ 3b. Rate limiting: ráfaga de connects → 429 en alguno ═══════════════════
-let saw429 = false;
-for (let i = 0; i < 22 && !saw429; i++) {
-  const r = await rpc(sbAnon, 'student_connect', { p_session_id: SID, p_student_name: 'Spam ' + i, p_device_id: randomUUID() });
-  if (r.data?.ok === false && r.data?.error === 'RATE_LIMITED') saw429 = true;
-}
-check('rate limit connect → 429 RATE_LIMITED', saw429, '');
+// NOTA: la prueba de ráfaga (rate limit) va al final (§7b) para no consumir
+// el presupuesto de connects de esta sesión durante las pruebas de rotación.
 
 // ══ 4. Rotación: reconexión mismo device → mismo id, token nuevo, anterior 401
 const cA2 = await rpc(sbAnon, 'student_connect', { p_session_id: SID, p_student_name: 'Juan E2E', p_device_id: devA });
-check('reconnect mismo studentId', cA2.data?.ok === true && cA2.data.data.studentId === idA, '');
+check('reconnect mismo studentId', cA2.data?.ok === true && cA2.data?.data?.studentId === idA, JSON.stringify(cA2.data));
+if (!cA2.data?.ok) {
+  console.log('RESULT: RECONNECT FALLÓ — revisar salida');
+  process.exit(1);
+}
 const tokA2 = cA2.data.data.studentToken;
 check('reconnect emite token nuevo', tokA2 !== tokA1, '');
 const stale = await rpc(sbAnon, 'student_answer', { p_student_token: tokA1, p_session_id: SID, p_question_id: Q1.id, p_option_id: Q1_OK });
@@ -148,6 +151,34 @@ const xStudent = await rpc(sbAnon, 'student_answer', { p_student_token: tokB, p_
 check('token de otra sesión → 401', xStudent.data?.ok === false && xStudent.data?.error === 'UNAUTHORIZED', JSON.stringify(xStudent.data));
 
 // ══ 7. Manipulación: score/isCorrect contrabandeados se ignoran ═════════════
+
+// ══ 7c. Desconexión explícita: revoca token y marca disconnected ═══════════
+// Va antes de la ráfaga (§7b) para no gastar el presupuesto de connects.
+const devC = randomUUID();
+const cC = await rpc(sbAnon, 'student_connect', { p_session_id: SID, p_student_name: 'Pedro E2E', p_device_id: devC });
+check('connect Pedro', cC.data?.ok === true, JSON.stringify(cC.data ?? cC.error).slice(0, 100));
+if (cC.data?.ok) {
+  const tokC = cC.data.data.studentToken;
+  const dc = await rpc(sbAnon, 'student_disconnect', { p_student_token: tokC });
+  check('disconnect ok', dc.data?.ok === true && dc.data.data.disconnected === true, JSON.stringify(dc.data ?? dc.error).slice(0, 120));
+  if (!dc.data?.ok) {
+    console.log('RESULT: DISCONNECT FALLÓ (¿0005 con student_disconnect aplicada?)');
+    process.exit(1);
+  }
+  const postDc = await rpc(sbAnon, 'student_answer', { p_student_token: tokC, p_session_id: SID, p_question_id: Q1.id, p_option_id: Q1_OK });
+  check('token revocado → 401', postDc.data?.ok === false && postDc.data?.error === 'UNAUTHORIZED', '');
+  const { data: pedro } = await sbProf.from('session_students').select('status').eq('session_id', SID).eq('student_name', 'Pedro E2E').single();
+  check('Pedro marcado disconnected', pedro?.status === 'disconnected', pedro?.status ?? '');
+}
+
+// ══ 7b. Rate limiting: ráfaga de connects → 429 en alguno ══════════════════
+// Va aquí (no antes) para no gastar el presupuesto de la sesión en pruebas previas.
+let saw429 = false;
+for (let i = 0; i < 62 && !saw429; i++) {
+  const r = await rpc(sbAnon, 'student_connect', { p_session_id: SID, p_student_name: 'Spam ' + i, p_device_id: randomUUID() });
+  if (r.data?.ok === false && r.data?.error === 'RATE_LIMITED') saw429 = true;
+}
+check('rate limit connect → 429 RATE_LIMITED', saw429, '');
 const smuggle = await rpc(sbAnon, 'student_answer', { p_student_token: tokB, p_session_id: SID, p_question_id: Q1.id, p_option_id: Q1_BAD, p_extra_score: 999 });
 check('campo score extra no rompe ni altera (ignorado o 400)', smuggle.data?.ok === true || !!smuggle.error, JSON.stringify(smuggle.data ?? smuggle.error).slice(0, 100));
 

@@ -105,6 +105,11 @@ export interface AnswerResult {
   status: string;
 }
 
+export interface DisconnectResult {
+  disconnected: boolean;
+  status: string;
+}
+
 // ── Núcleo RPC ───────────────────────────────────────────────────────────────
 
 interface RpcEnvelope<T> {
@@ -182,6 +187,13 @@ export async function submitAnswer(input: {
     p_session_id: input.sessionId,
     p_question_id: input.questionId,
     p_option_id: input.optionId,
+  });
+}
+
+/** DISCONNECT: revoca el token y marca disconnected (salvo completed). */
+export async function disconnectStudent(studentToken: string): Promise<DisconnectResult> {
+  return callStudentRpc<DisconnectResult>('student_disconnect', {
+    p_student_token: studentToken,
   });
 }
 

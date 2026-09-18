@@ -50,4 +50,6 @@ namespace Airstark.Networking
     [Serializable] public class SessionEnvelope { public bool ok; public SessionData data; public string error; public string message; public int statusCode; }
     [Serializable] public class ConnectEnvelope { public bool ok; public ConnectData data; public string error; public string message; public int statusCode; }
     [Serializable] public class AnswerEnvelope { public bool ok; public AnswerData data; public string error; public string message; public int statusCode; }
+    [Serializable] public class DisconnectData { public bool disconnected; public string status; }
+    [Serializable] public class DisconnectEnvelope { public bool ok; public DisconnectData data; public string error; public string message; public int statusCode; }
 }

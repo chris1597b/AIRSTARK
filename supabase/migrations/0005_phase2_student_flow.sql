@@ -21,10 +21,12 @@
 --   - UNIQUE(session_id, device_id) y UNIQUE(session_student_id, question_id).
 --
 -- NO DESTRUCTIVA: solo CREATE TABLE / ADD POLICY / CREATE FUNCTION.
--- Requiere pgcrypto (ya disponible: gen_random_uuid() la usa en sessions.id).
+-- Requiere pgcrypto. En Supabase alojado la extensión vive en el schema
+-- `extensions` (garantía de plataforma), por eso las funciones la califican
+-- como `extensions.gen_random_bytes/digest` y NO como `public.*`.
 -- ============================================================================
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 -- ── Rate limiting a nivel de código (MVP) ────────────────────────────────────
 -- Tabla solo-escritura interna: las RPCs registran cada intento por
@@ -313,8 +315,9 @@ begin
       'message', 'Identificador de dispositivo no válido.', 'statusCode', 400);
   end if;
 
-  -- Rate limit MVP: 20 connects/min por IP+sesión (operación de escritura).
-  if not public.student_check_rate('connect', p_session_id::text, 20, 60) then
+  -- Rate limit MVP: 60 connects/min por IP+sesión (operación de escritura).
+  -- Umbral holgado a propósito: un aula completa tras un mismo NAT comparte IP.
+  if not public.student_check_rate('connect', p_session_id::text, 60, 60) then
     return jsonb_build_object('ok', false, 'error', 'RATE_LIMITED',
       'message', 'Demasiadas solicitudes. Intenta nuevamente.', 'statusCode', 429);
   end if;
@@ -361,14 +364,16 @@ begin
   end if;
 
   -- Token opaco: 32 bytes aleatorios en hex. Solo se guarda su SHA-256.
-  v_token := encode(public.gen_random_bytes(32), 'hex');
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
 
   if found then
     -- Reconexión: mismo estudiante, token nuevo, anterior revocado (§17/§44).
     update public.session_students
-       set token_hash = encode(public.digest(v_token, 'sha256'), 'hex'),
-           token_expires_at = v_session.expires_at,
-           token_revoked_at = now(),
+       set token_hash = encode(extensions.digest(v_token, 'sha256'::text), 'hex'),
+             token_expires_at = v_session.expires_at,
+             -- El hash nuevo reemplaza al anterior (el viejo ya no coincide → 401).
+             -- revoked_at queda NULL: el token vigente NO está revocado (solo lo
+             -- fija un futuro endpoint de desconexión explícita).
            updated_at = now()
      where id = v_student.id
     returning id, status, joined_at into v_student;
@@ -382,7 +387,7 @@ begin
           (session_id, student_name, device_id, status, token_hash, token_expires_at)
         values
           (v_session.id, trim(p_student_name), p_device_id, 'connected',
-           encode(public.digest(v_token, 'sha256'), 'hex'), v_session.expires_at)
+           encode(extensions.digest(v_token, 'sha256'::text), 'hex'), v_session.expires_at)
         returning id, status, joined_at into v_student;
         v_created := true;
         exit;
@@ -392,9 +397,10 @@ begin
          where st.session_id = v_session.id and st.device_id = p_device_id;
         if found then
           update public.session_students
-             set token_hash = encode(public.digest(v_token, 'sha256'), 'hex'),
+             set token_hash = encode(extensions.digest(v_token, 'sha256'::text), 'hex'),
                  token_expires_at = v_session.expires_at,
-                 token_revoked_at = now(),
+                 -- Hash nuevo reemplaza al anterior (el viejo ya no coincide).
+                 -- revoked_at queda NULL: el token vigente NO está revocado.
                  updated_at = now()
            where id = v_student.id
           returning id, status, joined_at into v_student;
@@ -473,7 +479,7 @@ begin
   -- 1-3. Token válido, no revocado, no expirado, pertenece al estudiante.
   select st.* into v_student
     from public.session_students st
-   where st.token_hash = encode(public.digest(p_student_token, 'sha256'), 'hex')
+   where st.token_hash = encode(extensions.digest(p_student_token, 'sha256'::text), 'hex')
      and st.token_revoked_at is null
      and (st.token_expires_at is null or st.token_expires_at > now());
 
@@ -612,6 +618,60 @@ $$;
 
 revoke all on function public.student_answer(text, uuid, uuid, uuid) from public;
 grant execute on function public.student_answer(text, uuid, uuid, uuid) to anon, authenticated;
+
+-- ── RPC 4: student_disconnect (revocación explícita) ─────────────────────────
+-- Expulsa un dispositivo: revoca su token y lo marca disconnected (salvo que
+-- ya hubiera completado, estado terminal que se conserva). El token revocado
+-- responde 401 desde ese momento. P1 de endurecimiento pre-producción.
+create or replace function public.student_disconnect(p_student_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+  v_status text;
+begin
+  if p_student_token is null or p_student_token = '' then
+    return jsonb_build_object('ok', false, 'error', 'UNAUTHORIZED',
+      'message', 'Tu sesión de estudiante ya no es válida.', 'statusCode', 401);
+  end if;
+
+  -- Rate limit MVP: 30 desconexiones/min por IP.
+  if not public.student_check_rate('disconnect', '-', 30, 60) then
+    return jsonb_build_object('ok', false, 'error', 'RATE_LIMITED',
+      'message', 'Demasiadas solicitudes. Intenta nuevamente.', 'statusCode', 429);
+  end if;
+
+  select st.id, st.status into v_id, v_status
+    from public.session_students st
+   where st.token_hash = encode(extensions.digest(p_student_token, 'sha256'::text), 'hex')
+     and st.token_revoked_at is null
+     and (st.token_expires_at is null or st.token_expires_at > now());
+
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'UNAUTHORIZED',
+      'message', 'Tu sesión de estudiante ya no es válida.', 'statusCode', 401);
+  end if;
+
+  update public.session_students
+     set token_revoked_at = now(),
+         -- completed es terminal: se conserva aunque el dispositivo se vaya.
+         status = case when v_status = 'completed' then 'completed' else 'disconnected' end,
+         updated_at = now()
+   where id = v_id
+  returning status into v_status;
+
+  return jsonb_build_object(
+    'ok', true,
+    'data', jsonb_build_object('disconnected', true, 'status', v_status)
+  );
+end;
+$$;
+
+revoke all on function public.student_disconnect(text) from public;
+grant execute on function public.student_disconnect(text) to anon, authenticated;
 
 -- ============================================================================
 -- VERIFICACIÓN (SQL Editor, tras aplicar — SOLO lecturas + RPCs públicas):

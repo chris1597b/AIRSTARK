@@ -74,6 +74,21 @@ namespace Airstark.Networking
             done(Parse<AnswerEnvelope>(req));
         }
 
+        // ── POST disconnect (revocación explícita) ─────────────────
+        public IEnumerator Disconnect(string studentToken, Action<DisconnectEnvelope> done)
+        {
+            string url = config.useEdgeFunctions
+                ? $"{config.apiBaseUrl}/disconnect-student"
+                : $"{config.apiBaseUrl}/rest/v1/rpc/student_disconnect";
+            string payload = config.useEdgeFunctions
+                ? "{}"
+                : $"{{\"p_student_token\":\"{studentToken}\"}}";
+            using var req = Post(url, payload);
+            if (config.useEdgeFunctions) req.SetRequestHeader("Authorization", "Bearer " + studentToken);
+            yield return Send(req, config.requestTimeoutSeconds);
+            done(Parse<DisconnectEnvelope>(req));
+        }
+
         // ── Infra ────────────────────────────────────────────────────
         private UnityWebRequest Post(string url, string json)
         {

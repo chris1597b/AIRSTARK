@@ -121,5 +121,22 @@ namespace Airstark.Core
             CurrentQuestionIndex = 0; LastError = null; LastErrorCode = null;
             SetState(SessionState.ScanningQR);
         }
+
+        /// <summary>
+        /// Desconexión explícita: revoca el token en servidor y vuelve a la
+        /// pantalla de ingreso (el estudiante puede reconectar → rotación).
+        /// </summary>
+        public void Disconnect()
+        {
+            var token = studentToken;
+            studentToken = null;
+            StudentId = null;
+            if (string.IsNullOrEmpty(token)) { SetState(SessionState.WaitingStudent); return; }
+            StartCoroutine(api.Disconnect(token, env =>
+            {
+                if (!env.ok) { Fail(env.error, AirstarkApiClient.UserMessage(env.error)); return; }
+                SetState(SessionState.WaitingStudent);
+            }));
+        }
     }
 }
