@@ -37,11 +37,11 @@ function check(name, cond, detail = '') {
 }
 
 // ══ 1. LOGIN de ambos profesores (Supabase Auth real, signInWithPassword) ══
+// Credenciales desde entorno/.env.qa (qa-env.mjs) — jamás hardcodeadas.
+const { qaEnv } = await import('./qa-env.mjs');
+const { emailA, emailB, password: pass } = qaEnv();
 const sbA = mk();
 const sbB = mk();
-const emailA = 'qa-fase1-1789566189709@yahoo.com';
-const emailB = 'qa-fase1-1789566195918@yahoo.com';
-const pass = 'Qa-AirStark-2026!';
 
 const { data: logA, error: errA } = await sbA.auth.signInWithPassword({ email: emailA, password: pass });
 const { data: logB, error: errB } = await sbB.auth.signInWithPassword({ email: emailB, password: pass });

@@ -1036,54 +1036,61 @@ const CodigoQRView: React.FC<{
 /* ─────────────────────────────────────────────
    Sub-vista: Estadísticas
 ───────────────────────────────────────────── */
-import { SessionSocket } from '../../../shared/lib/sessionSocket.ts';
+import { getSessionProgress, SessionStudentResult } from '../../evaluation/services/studentResultsService.ts';
 import { Student } from '../types/evaluation.ts';
+
+/** Intervalo de polling del tablero (Fase 2 MVP: sin sockets, §41). */
+const RESULTS_POLL_MS = 4000;
 
 const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationDraft }> = ({ sessionId, config }) => {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [connState, setConnState] = React.useState<'DISCONNECTED'|'CONNECTING'|'CONNECTED'>('DISCONNECTED');
   const [sessionStatus, setSessionStatus] = React.useState<string>('active');
+  const [averageScore, setAverageScore] = React.useState<number | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
+  // FASE 2: resultados REALES desde Supabase con polling (§40-42).
+  // Sin mocks, sin WebSockets todavía: la capa studentResultsService ya
+  // expone la forma que usará Realtime después, sin cambiar esta UI.
   React.useEffect(() => {
     if (!sessionId) return;
+    let mounted = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
 
-    const socket = new SessionSocket(sessionId, {
-      onStateChange: setConnState,
-      onSessionState: (data) => {
-        setSessionStatus(data.status);
-        setStudents(data.students);
-      },
-      onStudentConnected: (data) => {
-        setStudents(prev => {
-          if (prev.find(s => s.studentId === data.studentId)) return prev;
-          return [...prev, { studentId: data.studentId, studentName: data.studentName, status: 'connected', score: 0, answered: 0, totalQuestions: config.preguntas.length }];
-        });
-      },
-      onStudentAnswered: (data) => {
-        setStudents(prev => prev.map(s => {
-          if (s.studentId === data.studentId) {
-            return { ...s, status: 'in_progress', answered: Math.floor(data.progress * s.totalQuestions / 100) };
-          }
-          return s;
-        }));
-      },
-      onStudentCompleted: (data) => {
-        setStudents(prev => prev.map(s => {
-          if (s.studentId === data.studentId) {
-            return { ...s, status: 'completed', score: data.score, answered: data.totalQuestions };
-          }
-          return s;
-        }));
-      },
-      onSessionEnded: (data) => {
-        setSessionStatus(data.status);
-      },
-      onError: (err) => console.error('[AIRSTARK] Error en estadísticas WebSocket:', err),
-    });
+    const fetchResults = async () => {
+      if (mounted) setConnState((s) => (s === 'CONNECTED' ? s : 'CONNECTING'));
+      try {
+        const progress = await getSessionProgress(sessionId);
+        if (!mounted) return;
+        setSessionStatus(progress.sessionStatus);
+        setAverageScore(progress.averageScore);
+        setLoadError(null);
+        setStudents(
+          progress.students.map((r: SessionStudentResult) => ({
+            studentId: r.studentId,
+            studentName: r.studentName,
+            status: r.status,
+            score: r.score,
+            answered: r.answered,
+            totalQuestions: r.totalQuestions,
+          }))
+        );
+        setConnState('CONNECTED');
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error('[AIRSTARK] Error cargando resultados:', err);
+        setLoadError(err?.message ?? 'No se pudieron cargar los resultados.');
+        setConnState('DISCONNECTED');
+      }
+    };
 
-    socket.connect();
-    return () => socket.disconnect();
-  }, [sessionId, config.preguntas.length]);
+    fetchResults();
+    timer = setInterval(fetchResults, RESULTS_POLL_MS);
+    return () => {
+      mounted = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [sessionId]);
 
   return (
     <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
@@ -1111,17 +1118,17 @@ const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationD
           {connState === 'CONNECTED' ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-              <span className="text-xs font-bold text-green-400 uppercase tracking-widest">EN VIVO</span>
+              <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Actualizado</span>
             </div>
           ) : connState === 'CONNECTING' ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/30">
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
-              <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">CONECTANDO</span>
+              <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">Cargando</span>
             </div>
           ) : (
              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30">
               <div className="w-2 h-2 rounded-full bg-red-400"></div>
-              <span className="text-xs font-bold text-red-400 uppercase tracking-widest">DESCONECTADO</span>
+              <span className="text-xs font-bold text-red-400 uppercase tracking-widest">Sin conexión</span>
             </div>
           )}
         </div>
@@ -1145,8 +1152,10 @@ const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationD
               {students.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-gray-500 text-sm">
-                    Todavia no hay estudiantes conectados a esta sesion.
-                    <span className="block mt-1 text-xs text-gray-600">El tablero en vivo se activara en Fase 2.</span>
+                    {loadError ?? 'Todavia no hay estudiantes conectados a esta sesion.'}
+                    <span className="block mt-1 text-xs text-gray-600">
+                      {loadError ? 'Reintentando automáticamente…' : 'Comparte el QR para que entren desde Unity.'}
+                    </span>
                   </td>
                 </tr>
               ) : (
@@ -1184,7 +1193,9 @@ const EstadisticasView: React.FC<{ sessionId: string | null; config: EvaluationD
         <div className="bg-gray-900/50 p-6 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <span className="text-gray-400 text-sm font-semibold uppercase tracking-wider">Promedio de la clase:</span>
-            <span className="text-white font-bold text-xl">17.3/20</span>
+            <span className="text-white font-bold text-xl">
+              {averageScore !== null ? averageScore.toFixed(1) : '--'}
+            </span>
           </div>
           <button className="w-full sm:w-auto h-12 px-6 bg-cyan-400 hover:bg-cyan-300 text-gray-900 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)]">
             <span className="material-symbols-outlined text-[20px]">download</span>

@@ -8,6 +8,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
+import { qaEnv } from './qa-env.mjs';
 
 const env = Object.fromEntries(
   readFileSync('.env.local', 'utf8')
@@ -23,11 +24,11 @@ const sb = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
   auth: { persistSession: false, detectSessionInUrl: false },
 });
 
+const { emailA, emailB, password } = qaEnv();
 const usuarios = [
-  { email: 'qa.profe.a.airstark@gmail.com', name: 'Profesor QA A' },
-  { email: 'qa.profe.b.airstark@gmail.com', name: 'Profesor QA B' },
+  { email: emailA, name: 'Profesor QA A' },
+  { email: emailB, name: 'Profesor QA B' },
 ];
-const password = 'Qa-AirStark-2026!';
 
 for (const u of usuarios) {
   const { data, error } = await sb.auth.signUp({

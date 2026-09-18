@@ -13,6 +13,7 @@ server/.env
 server/node_modules
 dist-ssr
 *.local
+.env.qa
 
 # Editor directories and files
 .vscode/*

@@ -104,6 +104,15 @@ Mientras no exista el backend NestJS, el `GET /sessions/{sessionId}` se sirve co
 - **ENMIENDA a §8.4:** el payload incluye `CorrectOptionIndex` porque Unity da feedback inmediato en el dispositivo (`QuizConfig.EnableImmediateFeedback: true`). Protección: UUID inaudivinable como capability (sin SELECT directo ni enumeración), función otorgada solo a `anon`/`authenticated`, y rate limiting a nivel de proyecto. Cuando el backend valide respuestas en servidor, este campo podrá suprimirse.
 - **Cliente web de referencia:** `getUnitySessionPayload()` en `src/features/evaluation/services/unityPayloadService.ts` (tipos PascalCase idénticos a los JSON).
 
+### 8.4.2. Implementación Fase 2 del flujo estudiante (migración 0005)
+Sin backend NestJS ni Edge desplegadas, los 3 endpoints viven como RPCs
+`SECURITY DEFINER` (`student_get_session`, `student_connect`, `student_answer`),
+invocables por `anon`/`authenticated` vía PostgREST. Devuelven el sobre
+`{ok, data} | {ok:false, error, message, statusCode}` con los códigos cerrados
+de §10; las Edge de `supabase/functions/` lo mapean a HTTP real sin cambiar Unity.
+- **Desviaciones documentadas:** (1) migración `0005_…` en vez de `0002_…` (§33) por colisión de nombre; (2) código extra `SESSION_NOT_STARTED` (409) para activación futura (§47); (3) el token viaja como parámetro `p_student_token` (PostgREST no lee headers en la función; Edge/NestJS lo mapea desde `Authorization: Bearer`); (4) score = 1 punto por acierto (MVP); (5) tope MVP 100 estudiantes/sesión; rate limiting en código: `student_rate_hits` por (IP, endpoint) — get 120/min, connect 20/min, answer 60/min → `429 RATE_LIMITED` (el avanzado queda a nivel Edge/WAF); (6) carreras de UNIQUE resueltas como reintento idempotente (`ALREADY_ANSWERED` / reconexión) en vez de 500; (7) `student_get_session` es VOLATILE (marca expired al observar); connect devuelve el estado real del estudiante.
+- Tablas `session_students` (con `token_hash/token_expires_at/token_revoked_at`, `UNIQUE(session_id,device_id)`) y `student_answers` (`UNIQUE(session_student_id,question_id)`, `is_correct` solo servidor). RLS: profesor solo lectura de lo suyo; Unity sin acceso directo.
+
 ### 8.5. Conectar Estudiante (Unity)
 * **`POST /sessions/{sessionId}/connect`**
   - **Auth:** No requiere autenticación inicial.

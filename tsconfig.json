@@ -26,5 +26,13 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  // Las Edge Functions (Deno) viven en supabase/functions y se verifican al
+  // desplegar en Supabase, no con el compilador web (usan imports esm.sh y
+  // el global Deno, inexistentes en el toolchain Vite).
+  "exclude": [
+    "node_modules",
+    "dist",
+    "supabase/functions"
+  ]
 }
