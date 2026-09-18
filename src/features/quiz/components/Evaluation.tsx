@@ -829,9 +829,13 @@ const CodigoQRView: React.FC<{
 
   const hasInitializedRef = React.useRef(false);
 
+  // NOTA (fix spinner infinito): NO usar flag `mounted` por ejecución del
+  // efecto. El `setSessionState({loading})` provoca un re-render que ejecuta
+  // el cleanup antes de que resuelva `createSession`, y el guard post-`await`
+  // descartaba el `success` en el 100% de los casos. En React 18+ un setState
+  // tras desmontar es no-op sin warnings; `hasInitializedRef` es la única
+  // protección single-flight necesaria.
   React.useEffect(() => {
-    let mounted = true;
-    
     const initSession = async () => {
       // Prevenir ejecución doble
       if (hasInitializedRef.current) return;
@@ -844,7 +848,6 @@ const CodigoQRView: React.FC<{
         setSessionState({ status: 'loading' });
         try {
           const existing = await getSession(presetSessionId);
-          if (!mounted) return;
           if (existing) {
             setSessionState({
               status: 'success',
@@ -857,7 +860,6 @@ const CodigoQRView: React.FC<{
             setSessionState({ status: 'error', message: 'La sesión no existe o ya no está disponible.' });
           }
         } catch (err: any) {
-          if (!mounted) return;
           setSessionState({ status: 'error', message: err?.message ?? 'No se pudo recuperar la sesión.' });
         }
         return;
@@ -871,21 +873,17 @@ const CodigoQRView: React.FC<{
         const response = await createSession(config, {
           idempotencyKey: idempotencyKeyRef.current,
           existingEvaluationId: config.origenPreguntas === 'evaluacion_existente' ? config.evaluacionSeleccionadaId : null,
-          onProgress: (s) => { if (mounted) setStage(s); },
+          onProgress: (s) => setStage(s),
         });
-        if (!mounted) return;
         setSessionState({ status: 'success', data: { sessionId: response.sessionId, expiresAt: new Date(response.expiresAt) } });
         if (onSessionCreated) onSessionCreated(response.sessionId);
       } catch (err: any) {
-        if (!mounted) return;
         console.error('[AIRSTARK] Error al crear sesión:', err);
         setSessionState({ status: 'error', message: err.message || 'No se pudo crear la sesión. Verifica tu autenticación.' });
       }
     };
 
     initSession();
-
-    return () => { mounted = false; };
     // §21: 'config' intencionalmente fuera de las dependencias — re-ejecutar
     // este efecto con el draft cambiado crearía una sesión nueva. La creación
     // es una sola por visita al tab (idempotencyKeyRef), y una sesión ya
