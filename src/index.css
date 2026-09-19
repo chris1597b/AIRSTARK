@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* From Uiverse.io by 0senno */ 
 .loading svg polyline {
   fill: none;
