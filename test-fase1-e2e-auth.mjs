@@ -39,12 +39,13 @@ function check(name, cond, detail = '') {
 // ══ 1. LOGIN de ambos profesores (Supabase Auth real, signInWithPassword) ══
 // Credenciales desde entorno/.env.qa (qa-env.mjs) — jamás hardcodeadas.
 const { qaEnv } = await import('./qa-env.mjs');
-const { emailA, emailB, password: pass } = qaEnv();
+const { emailA, emailB, passwordA, passwordB } = qaEnv();
+const passA = passwordA, passB = passwordB;
 const sbA = mk();
 const sbB = mk();
 
-const { data: logA, error: errA } = await sbA.auth.signInWithPassword({ email: emailA, password: pass });
-const { data: logB, error: errB } = await sbB.auth.signInWithPassword({ email: emailB, password: pass });
+const { data: logA, error: errA } = await sbA.auth.signInWithPassword({ email: emailA, password: passA });
+const { data: logB, error: errB } = await sbB.auth.signInWithPassword({ email: emailB, password: passB });
 check('login profesor A (signInWithPassword)', !errA && !!logA?.user, errA?.message ?? `uid=${logA?.user?.id}`);
 check('login profesor B (signInWithPassword)', !errB && !!logB?.user, errB?.message ?? `uid=${logB?.user?.id}`);
 if (errA || errB) {
@@ -217,7 +218,7 @@ check('listSessions de A devuelve solo sesiones de A', (propiasA ?? []).every((r
 
 // ══ 10. Persistencia (§31.9): la sesión sigue ahí tras "recargar" (nuevo cliente con misma sesión) ══
 const sbReload = mk();
-await sbReload.auth.signInWithPassword({ email: emailA, password: pass });
+await sbReload.auth.signInWithPassword({ email: emailA, password: passA });
 const { data: persisted } = await sbReload.from('sessions').select('id, name, status, expires_at').eq('id', ses.id).single();
 check('sesión persiste tras nueva autenticación (recarga)', persisted?.id === ses.id && persisted?.status === 'waiting', persisted?.name ?? 'no encontrada');
 

@@ -49,15 +49,22 @@ namespace Airstark.Core
             DeviceId = DeviceIdProvider.GetOrCreate();
         }
 
-        private void SetState(SessionState s) { State = s; OnStateChanged?.Invoke(s); }
-        private void Fail(string code, string message) { LastErrorCode = code; LastError = message; SetState(SessionState.Error); }
+        private void SetState(SessionState s) { State = s; Log($"STATE → {s}"); OnStateChanged?.Invoke(s); }
+        private void Fail(string code, string message) { LastErrorCode = code; LastError = message; Log($"FAIL [{code}] {message}"); SetState(SessionState.Error); }
+
+        private void Log(string msg)
+        {
+            if (config != null && config.verboseLogging) UnityEngine.Debug.Log("[AIRSTARK] " + msg);
+        }
 
         // ── QR → sessionId (§3/§19: el QR trae SOLO el UUID, sin JSON ni URL) ──
         public void OnQrScanned(string raw)
         {
             var value = (raw ?? "").Trim();
+            Log($"QR leído (crudo): '{value}'");
             if (!Guid.TryParse(value, out _)) { Fail("VALIDATION_ERROR", "Código QR no válido para AIRSTARK."); return; }
             SessionId = value;
+            Log($"sessionId válido: {SessionId}");
             LoadSession();
         }
 
@@ -68,6 +75,7 @@ namespace Airstark.Core
             {
                 if (!env.ok) { Fail(env.error, AirstarkApiClient.UserMessage(env.error)); return; }
                 Session = env.data;
+                Log($"Sesión cargada: '{Session.name}' | estado={Session.status} | preguntas={TotalQuestions} | canStart={Session.canStart}");
                 if (!Session.canStart) { Fail("SESSION_NOT_STARTED", AirstarkApiClient.UserMessage("SESSION_NOT_STARTED")); return; }
                 CurrentQuestionIndex = 0;
                 SetState(SessionState.WaitingStudent);
@@ -84,6 +92,7 @@ namespace Airstark.Core
                 if (!env.ok) { Fail(env.error, AirstarkApiClient.UserMessage(env.error)); return; }
                 StudentId = env.data.studentId;
                 studentToken = env.data.studentToken;
+                Log($"Conectado: studentId={StudentId} (token recibido en memoria, no se muestra)");
                 SetState(SessionState.Ready);
             }));
         }
@@ -109,6 +118,8 @@ namespace Airstark.Core
             {
                 if (!env.ok) { Fail(env.error, AirstarkApiClient.UserMessage(env.error)); return; }
                 var r = env.data;
+                Log($"Respuesta registrada: {r.answered}/{r.totalQuestions} completed={r.completed}" +
+                    (r.completed ? $" score={r.score}" : ""));
                 if (r.completed) SetState(SessionState.Completed);
                 else { CurrentQuestionIndex = Math.Min(CurrentQuestionIndex + 1, Math.Max(0, TotalQuestions - 1)); if (State != SessionState.InProgress) SetState(SessionState.InProgress); }
                 done?.Invoke(r);

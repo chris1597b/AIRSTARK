@@ -93,7 +93,7 @@ namespace Airstark.Flow
             var q = m.CurrentQuestion;
             if (q == null) return;
             counterText.text = $"Pregunta {m.CurrentQuestionIndex + 1} de {m.TotalQuestions}";
-            questionText.text = q.Text;
+            questionText.text = q.text;
             foreach (var opt in q.options)
             {
                 var b = Instantiate(optionButtonPrefab, optionsRoot);

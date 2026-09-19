@@ -24,16 +24,16 @@ const sb = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
   auth: { persistSession: false, detectSessionInUrl: false },
 });
 
-const { emailA, emailB, password } = qaEnv();
+const { emailA, emailB, passwordA, passwordB } = qaEnv();
 const usuarios = [
-  { email: emailA, name: 'Profesor QA A' },
-  { email: emailB, name: 'Profesor QA B' },
+  { email: emailA, name: 'Profesor QA A', password: passwordA },
+  { email: emailB, name: 'Profesor QA B', password: passwordB },
 ];
 
 for (const u of usuarios) {
   const { data, error } = await sb.auth.signUp({
     email: u.email,
-    password,
+    password: u.password,
     options: { data: { name: u.name } },
   });
   if (error) {

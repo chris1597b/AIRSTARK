@@ -21,5 +21,9 @@ namespace Airstark.Config
 
         [Header("Red")]
         [Min(5)] public int requestTimeoutSeconds = 20;
+
+        [Header("Diagnóstico")]
+        [Tooltip("Logs de verificación en consola/logcat (nunca incluye tokens). Apágalo en release.")]
+        public bool verboseLogging = true;
     }
 }

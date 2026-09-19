@@ -54,9 +54,9 @@ async function rpc(sb, fn, args) {
 // ══ 1. Profesor crea sesión (2 preguntas) vía RPC atómica ═══════════════════
 // Credenciales desde entorno/.env.qa (qa-env.mjs) — jamás hardcodeadas.
 const { qaEnv } = await import('./qa-env.mjs');
-const { emailA: emailQaA, emailB: emailQaB, password: passQa } = qaEnv();
+const { emailA: emailQaA, emailB: emailQaB, passwordA: passQaA, passwordB: passQaB } = qaEnv();
 const sbProf = anon();
-const { data: logA, error: errA } = await sbProf.auth.signInWithPassword({ email: emailQaA, password: passQa });
+const { data: logA, error: errA } = await sbProf.auth.signInWithPassword({ email: emailQaA, password: passQaA });
 check('login profesor QA', !errA && !!logA?.user, errA?.message ?? '');
 if (errA) process.exit(2);
 
@@ -206,7 +206,7 @@ check('dashboard ve a Juan completed score=1', juan?.status === 'completed' && j
 check('dashboard ve a María conectada (sesión sigue activa)', maria && maria.status !== 'completed', JSON.stringify(maria));
 check('sesión global sigue activa tras 1 completado', (await sbProf.from('sessions').select('status').eq('id', SID).single()).data?.status === 'active', '');
 const sbProfB = anon();
-await sbProfB.auth.signInWithPassword({ email: emailQaB, password: passQa });
+await sbProfB.auth.signInWithPassword({ email: emailQaB, password: passQaB });
 const { data: rowsB } = await sbProfB.from('session_students').select('id').eq('session_id', SID);
 check('profesor B NO ve estudiantes de A', (rowsB ?? []).length === 0, `${(rowsB ?? []).length} filas`);
 

@@ -30,13 +30,15 @@ for (const f of ['.env.qa', '.env.local']) {
 export function qaEnv() {
   const emailA = process.env.AIRSTARK_QA_EMAIL_A || fileEnv.AIRSTARK_QA_EMAIL_A;
   const emailB = process.env.AIRSTARK_QA_EMAIL_B || fileEnv.AIRSTARK_QA_EMAIL_B;
-  const password = process.env.AIRSTARK_QA_PASSWORD || fileEnv.AIRSTARK_QA_PASSWORD;
-  if (!emailA || !emailB || !password) {
+  const shared = process.env.AIRSTARK_QA_PASSWORD || fileEnv.AIRSTARK_QA_PASSWORD;
+  const passwordA = process.env.AIRSTARK_QA_PASSWORD_A || fileEnv.AIRSTARK_QA_PASSWORD_A || shared;
+  const passwordB = process.env.AIRSTARK_QA_PASSWORD_B || fileEnv.AIRSTARK_QA_PASSWORD_B || shared;
+  if (!emailA || !emailB || !passwordA || !passwordB) {
     console.error(
-      'FATAL: faltan credenciales QA. Define AIRSTARK_QA_EMAIL_A / AIRSTARK_QA_EMAIL_B / ' +
-      'AIRSTARK_QA_PASSWORD en entorno o en `.env.qa` (ver `.env.qa.example`).'
+      'FATAL: faltan credenciales QA. Define AIRSTARK_QA_EMAIL_A / AIRSTARK_QA_EMAIL_B y ' +
+      'AIRSTARK_QA_PASSWORD (o _A/_B por usuario) en entorno o en `.env.qa` (ver `.env.qa.example`).'
     );
     process.exit(2);
   }
-  return { emailA, emailB, password };
+  return { emailA, emailB, password: passwordA, passwordA, passwordB };
 }
