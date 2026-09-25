@@ -1,6 +1,6 @@
 
-// Backend API URL (Usa la variable de entorno de Vercel o de lo contrario asume fallback)
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+// Backend API URL (Usa la variable de entorno de Vercel o de lo contrario usa ruta relativa)
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 // Defines the structure of the medical data we expect
 export interface MedicalData {

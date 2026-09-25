@@ -9,6 +9,12 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true
+        }
+      }
     },
     // HTTPS (certificado autofirmado) solo si se pide explícitamente: ENABLE_BASIC_SSL=true
     // localhost es contexto seguro también por HTTP, así que cámara/voz funcionan igual.
