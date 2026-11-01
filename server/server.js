@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 
 // Cargar variables de entorno
@@ -14,6 +15,14 @@ const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3001;
 // OpenRouter: pool de modelos gratuitos con rotación automática
 // ──────────────────────────────────────────────────────────────────────────────
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Pool de modelos Gemini — vigentes según https://ai.google.dev/gemini-api/docs/models (nov 2026)
+const GEMINI_MODELS = [
+  "gemini-3.5-flash-lite",   // estable, el más rápido y económico
+  "gemini-3.6-flash",        // estable, equilibrio velocidad/calidad
+  "gemini-flash-latest",     // alias que apunta siempre a la última Flash
+];
 
 // Pool de modelos gratuitos en OpenRouter — verificados en vivo (oct 2026)
 // Probe real: solo estos responden sin 429/403/503
@@ -67,6 +76,7 @@ function isQuotaError(error) {
     code === 404 ||
     msg.includes("quota") ||
     msg.includes("rate limit") ||
+    msg.includes("resource_exhausted") ||
     msg.includes("exceeded") ||
     msg.includes("billing") ||
     msg.includes("capacity") ||
@@ -76,6 +86,46 @@ function isQuotaError(error) {
     msg.includes("unavailable") ||
     msg.includes("not available")
   );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Gemini: pool con rotación simple (mismo comportamiento que api/chat.js en Vercel)
+// ──────────────────────────────────────────────────────────────────────────────
+let geminiModelIndex = 0;
+
+async function tryGemini({ prompt, systemInstruction, forceJson }) {
+  if (!GEMINI_API_KEY) return null;
+
+  for (let attempt = 0; attempt < GEMINI_MODELS.length; attempt++) {
+    const model = GEMINI_MODELS[(geminiModelIndex + attempt) % GEMINI_MODELS.length];
+    try {
+      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+      const result = await ai.models.generateContent({
+        model,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          ...(systemInstruction ? { systemInstruction } : {}),
+          ...(forceJson ? { responseMimeType: "application/json" } : {}),
+        },
+      });
+
+      const text = result.text || "";
+      if (!text.trim()) throw new Error("Respuesta vacía de Gemini");
+
+      geminiModelIndex = (geminiModelIndex + 1) % GEMINI_MODELS.length;
+      return { text, model };
+    } catch (error) {
+      if (isQuotaError(error)) {
+        console.warn(`🔄 [Gemini] ${model} no disponible (${error.message.slice(0, 80)}), rotando...`);
+        continue;
+      }
+      // Error no recuperable (p.ej. key inválida): salir del pool de Gemini
+      console.error(`❌ [Gemini] Error en ${model}:`, error.message);
+      return null;
+    }
+  }
+  console.warn("🔄 [Gemini] Todo el pool agotado, pasando a OpenRouter...");
+  return null;
 }
 
 // Middleware
@@ -91,7 +141,8 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     message: "Backend AIRSTARK funcionando",
-    provider: "OpenRouter",
+    provider: "Gemini (principal) + OpenRouter (fallback)",
+    geminiAvailable: !!GEMINI_API_KEY,
     modelsAvailable: FREE_MODELS.length,
     modelsExhausted: exhaustedModels.size,
     currentModel: FREE_MODELS[currentModelIndex % FREE_MODELS.length],
@@ -113,10 +164,10 @@ app.get("/api/models", (_req, res) => {
 // POST /api/chat — endpoint principal con rotación automática
 // ──────────────────────────────────────────────────────────────────────────────
 app.post("/api/chat", async (req, res) => {
-  if (!OPENROUTER_API_KEY) {
+  if (!GEMINI_API_KEY && !OPENROUTER_API_KEY) {
     return res.status(500).json({
       success: false,
-      error: "OPENROUTER_API_KEY no está configurada en server/.env",
+      error: "Ni GEMINI_API_KEY ni OPENROUTER_API_KEY están configuradas en server/.env",
     });
   }
 
@@ -125,6 +176,32 @@ app.post("/api/chat", async (req, res) => {
 
     if (!prompt) {
       return res.status(400).json({ success: false, error: "El prompt es requerido" });
+    }
+
+    // 1) Gemini primero (igual que en Vercel)
+    const geminiResult = await tryGemini({ prompt, systemInstruction, forceJson });
+    if (geminiResult) {
+      let parsedData;
+      try {
+        const cleanText = geminiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
+        parsedData = JSON.parse(cleanText);
+      } catch {
+        parsedData = { text: geminiResult.text };
+      }
+      console.log(`✅ Respuesta exitosa de ${geminiResult.model} (Gemini)`);
+      return res.json({
+        success: true,
+        data: parsedData,
+        metadata: { model: geminiResult.model, provider: "gemini" },
+      });
+    }
+
+    // 2) OpenRouter como respaldo
+    if (!OPENROUTER_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        error: "Gemini no está disponible y no hay OPENROUTER_API_KEY configurada",
+      });
     }
 
     const openai = new OpenAI({
@@ -163,11 +240,11 @@ app.post("/api/chat", async (req, res) => {
           parsedData = { text };
         }
 
-        console.log(`✅ Respuesta exitosa de ${model}`);
+        console.log(`✅ Respuesta exitosa de ${model} (OpenRouter)`);
         return res.json({
           success: true,
           data: parsedData,
-          metadata: { model, attempt: attempt + 1 },
+          metadata: { model, attempt: attempt + 1, provider: "openrouter" },
         });
 
       } catch (error) {
@@ -212,7 +289,7 @@ app.post("/api/chat", async (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🚀 Backend AIRSTARK corriendo en http://localhost:${PORT}`);
-  console.log(`🔑 OpenRouter API Key: ${OPENROUTER_API_KEY ? "✅ Configurada" : "❌ NO CONFIGURADA"}`);
+  console.log(`🔑 OpenRouter API Key: ${OPENROUTER_API_KEY ? "✅ Configurada" : "❌ NO CONFIGURADA"} (respaldo Gemini principal)`);
   console.log(`🤖 Pool de ${FREE_MODELS.length} modelos gratuitos:`);
   FREE_MODELS.forEach((m, i) => console.log(`   ${i + 1}. ${m}`));
   console.log("");

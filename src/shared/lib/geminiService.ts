@@ -35,6 +35,20 @@ function backendError(statusText: string, status: number): Error {
   return err;
 }
 
+/** Lee el body JSON del backend ({ error, details }) para mostrar el mensaje real */
+async function throwBackendError(response: Response): Promise<never> {
+  let message = response.statusText || `Error ${response.status}`;
+  try {
+    const body = await response.json();
+    if (body?.error) message = body.error;
+    if (body?.details) message += ` — ${body.details}`;
+  } catch {
+    // Respuesta sin JSON válido; se usa el statusText genérico
+  }
+  const err = backendError(message, response.status);
+  throw err;
+}
+
 export const getClinicalContext = async (partName: string): Promise<string> => {
   const prompt = `
     Actúa como un profesor experto en cardiología preparando a un estudiante para el examen MIR o USMLE.
@@ -59,7 +73,7 @@ export const getClinicalContext = async (partName: string): Promise<string> => {
       body: JSON.stringify({ prompt, systemInstruction, forceJson: true }),
     });
 
-    if (!response.ok) throw backendError(response.statusText, response.status);
+    if (!response.ok) await throwBackendError(response);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || JSON.stringify(result.data);
@@ -88,7 +102,7 @@ export const getQuizQuestion = async (partName: string): Promise<string> => {
       body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
     });
 
-    if (!response.ok) throw backendError(response.statusText, response.status);
+    if (!response.ok) await throwBackendError(response);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Identifica la estructura asociada con esta área basándote en la anatomía.";
@@ -112,7 +126,7 @@ export const sendChatMessage = async (partName: string, message: string, history
       body: JSON.stringify({ prompt, systemInstruction, forceJson: false }),
     });
 
-    if (!response.ok) throw backendError(response.statusText, response.status);
+    if (!response.ok) await throwBackendError(response);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || "Error desconocido");
     return result.data.text || "Sin respuesta";
