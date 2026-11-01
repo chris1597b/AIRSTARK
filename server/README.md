@@ -1,34 +1,36 @@
-# Backend AIRSTARK - Configuración
+# Backend AIRSTARK - OpenRouter con Rotación de Modelos Gratuitos
 
-Este backend maneja de forma segura las llamadas a la API de Gemini, protegiendo tu API key.
+Este backend maneja de forma segura las llamadas a la IA usando **OpenRouter**, con un pool de modelos gratuitos y rotación automática cuando se agotan los tokens.
 
 ## 🚀 Inicio Rápido
 
-### 1. Configurar Variables de Entorno
+### 1. Obtener API Key de OpenRouter (GRATIS)
 
-Crea un archivo `.env` en la carpeta `server/`:
+1. Ve a [openrouter.ai](https://openrouter.ai) → **Sign In** (puedes usar Google)
+2. Ve a [openrouter.ai/keys](https://openrouter.ai/keys)
+3. Click en **Create Key** → nombra tu key "AIRSTARK"
+4. Copia la key (`sk-or-v1-...`)
+
+> **No necesitas agregar créditos.** Los modelos gratuitos funcionan sin billing.
+
+### 2. Configurar Variables de Entorno
 
 ```bash
 cd server
 cp .env.example .env
 ```
 
-Edita el archivo `.env` y agrega tu API key de Gemini:
+Edita `.env` y agrega tu API key de OpenRouter:
 
 ```env
-GEMINI_API_KEY=tu_api_key_real_aqui
+OPENROUTER_API_KEY=sk-or-v1-TU_API_KEY_AQUI
 PORT=3001
 ```
 
-### 2. Instalar Dependencias
+### 3. Instalar Dependencias & Iniciar
 
 ```bash
 npm install
-```
-
-### 3. Iniciar el Servidor
-
-```bash
 npm start
 ```
 
@@ -36,36 +38,49 @@ El backend estará corriendo en `http://localhost:3001`
 
 ## 📋 Ejecutar el Proyecto Completo
 
-Necesitas **DOS terminales**:
+Opción A — **Dos terminales:**
 
-### Terminal 1 - Backend
 ```bash
-cd server
-npm install
-npm start
-```
+# Terminal 1 - Backend
+cd server && npm start
 
-### Terminal 2 - Frontend
-```bash
+# Terminal 2 - Frontend
 npm run dev
 ```
 
-## 🔒 Seguridad
+Opción B — **Un solo comando:**
 
-✅ **La API key está protegida**: Solo existe en el servidor, nunca se expone al navegador
-✅ **CORS configurado**: Solo acepta peticiones del frontend local
-✅ **.env en .gitignore**: Tu API key nunca se subirá a GitHub
+```bash
+npm run dev:all
+```
+
+## 🤖 Modelos Gratuitos Disponibles
+
+| # | Modelo | Provider |
+|---|--------|----------|
+| 1 | `google/gemini-2.0-flash-exp:free` | Google |
+| 2 | `meta-llama/llama-3.1-8b-instruct:free` | Meta |
+| 3 | `mistralai/mistral-7b-instruct:free` | Mistral |
+| 4 | `qwen/qwen-2.5-7b-instruct:free` | Alibaba |
+| 5 | `huggingfaceh4/zephyr-7b-beta:free` | Hugging Face |
+
+### Rotación Automática
+
+- Cuando un modelo agota su cuota (error 429), el servidor **rota automáticamente** al siguiente.
+- Cada 10 minutos los modelos "exhaustos" se rehabilitan.
+- Si todos fallan, retorna error 503 con mensaje descriptivo.
 
 ## 📡 API Endpoints
 
 ### `POST /api/chat`
-Procesa consultas médicas usando Gemini AI.
+Procesa consultas usando el pool de modelos de OpenRouter.
 
 **Request:**
 ```json
 {
   "prompt": "Explica la válvula aórtica",
-  "systemInstruction": "Eres un experto en cardiología"
+  "systemInstruction": "Eres un experto en cardiología",
+  "forceJson": false
 }
 ```
 
@@ -73,32 +88,25 @@ Procesa consultas médicas usando Gemini AI.
 ```json
 {
   "success": true,
-  "data": {
-    "text": "..."
-  }
+  "data": { "text": "..." },
+  "metadata": { "model": "google/gemini-2.0-flash-exp:free", "attempt": 1 }
 }
 ```
+
+### `GET /api/models`
+Lista los modelos del pool y su estado actual.
 
 ### `GET /health`
-Verifica que el servidor está funcionando.
+Health check con estado de los modelos.
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "message": "Backend AIRSTARK funcionando"
-}
-```
+## 🔒 Seguridad
 
-## 🛠️ Desarrollo
-
-Para desarrollo con auto-reload:
-```bash
-npm run dev
-```
+✅ **API key protegida**: Solo existe en el servidor, nunca se expone al navegador
+✅ **CORS configurado**: Solo acepta peticiones del frontend local
+✅ **.env en .gitignore**: Tu API key nunca se subirá a GitHub
 
 ## ⚠️ Importante
 
 - **NO** subas el archivo `.env` a GitHub
 - **NO** compartas tu API key en chats o código público
-- El archivo `.env.example` es solo una plantilla (sin la key real)
+- Para **Vercel**, configura `OPENROUTER_API_KEY` en Settings → Environment Variables

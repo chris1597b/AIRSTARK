@@ -20,10 +20,7 @@ export default defineConfig(({ mode }) => {
     // localhost es contexto seguro también por HTTP, así que cámara/voz funcionan igual.
     plugins: [react(), ...(env.ENABLE_BASIC_SSL === 'true' ? [basicSsl()] : [])],
     define: {
-      'process.env': {
-        API_KEY: env.GEMINI_API_KEY || '',
-        GEMINI_API_KEY: env.GEMINI_API_KEY || ''
-      }
+      'process.env': {}
     },
     resolve: {
       alias: {
