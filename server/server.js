@@ -15,16 +15,16 @@ const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3001;
 // ──────────────────────────────────────────────────────────────────────────────
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-// Pool de modelos gratuitos en OpenRouter (actualizado oct 2026)
-// Verificados con la API de OpenRouter - todos tienen tier "free" activo
+// Pool de modelos gratuitos en OpenRouter — verificados en vivo (oct 2026)
+// Probe real: solo estos responden sin 429/403/503
 const FREE_MODELS = [
-  "google/gemma-4-31b-it:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "nvidia/nemotron-3.5-lightning:free",
-  "thinkingmachines/inkling:free",
-  "cohere/north-mini-code:free",
-  "liquid/lfm-2.5-2.6b:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",   // Mejor calidad, 550B params
+  "nvidia/nemotron-3.5-lightning:free",         // Rápido y confiable
+  "nvidia/nemotron-3.5-super-vl:free",          // Vision + lenguaje
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", // Bueno para razonamiento
+  "dots-studio/dots-3-note-preview:free",       // Bueno para texto estructurado
+  "cohere/north-mini-code:free",                // Buen seguimiento de instrucciones
+  "liquid/lfm-2.5-2.6b:free",                  // Ligero, fallback rápido
 ];
 
 // Estado global de rotación
@@ -57,19 +57,24 @@ function getNextModel() {
   return model;
 }
 
-/** Determina si un error es de cuota/tokens agotados */
+/** Determina si un error debe rotar al siguiente modelo */
 function isQuotaError(error) {
   const msg = (error.message || "").toLowerCase();
   const code = error.status || error.statusCode || 0;
   return (
     code === 429 ||
+    code === 503 ||
+    code === 404 ||
     msg.includes("quota") ||
     msg.includes("rate limit") ||
     msg.includes("exceeded") ||
     msg.includes("billing") ||
     msg.includes("capacity") ||
     msg.includes("overloaded") ||
-    msg.includes("too many requests")
+    msg.includes("too many requests") ||
+    msg.includes("provider returned error") ||
+    msg.includes("unavailable") ||
+    msg.includes("not available")
   );
 }
 
